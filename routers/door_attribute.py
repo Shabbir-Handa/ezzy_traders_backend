@@ -19,9 +19,10 @@ from schemas.schemas import (
 )
 
 router = APIRouter(
-    prefix="/door-attribute",
+    prefix="/api/door-attribute",
     tags=["Door & Attribute Management"],
 )
+
 
 # ============================================================================
 # DOOR TYPE ENDPOINTS
@@ -29,9 +30,9 @@ router = APIRouter(
 
 @router.post("/door-types", response_model=DoorTypeResponse, status_code=status.HTTP_201_CREATED)
 def create_door_type(
-    door_type_data: DoorTypeCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        door_type_data: DoorTypeCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Create a new door type"""
     try:
@@ -42,8 +43,8 @@ def create_door_type(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Door type with this name already exists"
             )
-        
-        door_type = DoorAttributeCRUD.create_door_type(db, door_type_data, created_by=current_user.username)
+
+        door_type = DoorAttributeCRUD.create_door_type(db, door_type_data, current_user.username)
         return door_type
     except SQLAlchemyError as e:
         raise HTTPException(
@@ -58,13 +59,14 @@ def create_door_type(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/door-types", response_model=List[DoorTypeResponse])
 def get_door_types(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    active_only: bool = Query(False),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
+        active_only: bool = Query(False),
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get all door types with pagination"""
     try:
@@ -84,11 +86,12 @@ def get_door_types(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/door-types/{door_type_id}", response_model=DoorTypeResponse)
 def get_door_type(
-    door_type_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        door_type_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get a specific door type by ID"""
     try:
@@ -112,16 +115,17 @@ def get_door_type(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.put("/door-types/{door_type_id}", response_model=DoorTypeResponse)
 def update_door_type(
-    door_type_id: int,
-    door_type_data: DoorTypeUpdate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        door_type_id: int,
+        door_type_data: DoorTypeUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Update a door type"""
     try:
-        door_type = DoorAttributeCRUD.update_door_type(db, door_type_id, door_type_data, updated_by=current_user.username)
+        door_type = DoorAttributeCRUD.update_door_type(db, door_type_id, door_type_data, current_user.username)
         if not door_type:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -141,11 +145,12 @@ def update_door_type(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.delete("/door-types/{door_type_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_door_type(
-    door_type_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        door_type_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Delete a door type (soft delete)"""
     try:
@@ -168,15 +173,16 @@ def delete_door_type(
             detail=f"Internal server error: {e}"
         )
 
+
 # ============================================================================
 # ATTRIBUTE ENDPOINTS
 # ============================================================================
 
 @router.post("/attributes", response_model=AttributeResponse, status_code=status.HTTP_201_CREATED)
 def create_attribute(
-    attribute_data: AttributeCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        attribute_data: AttributeCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Create a new attribute"""
     try:
@@ -187,8 +193,8 @@ def create_attribute(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Attribute with this name already exists"
             )
-        
-        attribute = DoorAttributeCRUD.create_attribute(db, attribute_data, created_by=current_user.username)
+
+        attribute = DoorAttributeCRUD.create_attribute(db, attribute_data, current_user.username)
         return attribute
     except SQLAlchemyError as e:
         raise HTTPException(
@@ -203,14 +209,15 @@ def create_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/attributes", response_model=List[AttributeResponse])
 def get_attributes(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    domain: Optional[str] = Query(None),
-    active_only: bool = Query(False),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
+        domain: Optional[str] = Query(None),
+        active_only: bool = Query(False),
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get all attributes with pagination and optional domain filtering"""
     try:
@@ -232,11 +239,12 @@ def get_attributes(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/attributes/{attribute_id}", response_model=AttributeResponse)
 def get_attribute(
-    attribute_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        attribute_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get a specific attribute by ID"""
     try:
@@ -260,16 +268,17 @@ def get_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.put("/attributes/{attribute_id}", response_model=AttributeResponse)
 def update_attribute(
-    attribute_id: int,
-    attribute_data: AttributeUpdate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        attribute_id: int,
+        attribute_data: AttributeUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Update an attribute"""
     try:
-        attribute = DoorAttributeCRUD.update_attribute(db, attribute_id, attribute_data, updated_by=current_user.username)
+        attribute = DoorAttributeCRUD.update_attribute(db, attribute_id, attribute_data, current_user.username)
         if not attribute:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -289,11 +298,12 @@ def update_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.delete("/attributes/{attribute_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_attribute(
-    attribute_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        attribute_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Delete an attribute (soft delete)"""
     try:
@@ -316,19 +326,20 @@ def delete_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 # ============================================================================
 # ENTITY ATTRIBUTE ENDPOINTS
 # ============================================================================
 
 @router.post("/entity-attributes", response_model=EntityAttributeResponse, status_code=status.HTTP_201_CREATED)
 def create_entity_attribute(
-    entity_attribute_data: EntityAttributeCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        entity_attribute_data: EntityAttributeCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Create a new entity attribute relationship"""
     try:
-        entity_attribute = DoorAttributeCRUD.create_entity_attribute(db, entity_attribute_data, created_by=current_user.username)
+        entity_attribute = DoorAttributeCRUD.create_entity_attribute(db, entity_attribute_data, current_user.username)
         return entity_attribute
     except SQLAlchemyError as e:
         raise HTTPException(
@@ -343,12 +354,13 @@ def create_entity_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/entity-attributes", response_model=List[EntityAttributeResponse])
 def get_entity_attributes(
-    entity_type: str = Query(...),
-    entity_id: int = Query(...),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        entity_type: str = Query(...),
+        entity_id: int = Query(...),
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get all attributes for a specific entity"""
     try:
@@ -365,11 +377,12 @@ def get_entity_attributes(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/entity-attributes/{entity_attribute_id}", response_model=EntityAttributeResponse)
 def get_entity_attribute(
-    entity_attribute_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        entity_attribute_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get a specific entity attribute by ID"""
     try:
@@ -393,16 +406,18 @@ def get_entity_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.put("/entity-attributes/{entity_attribute_id}", response_model=EntityAttributeResponse)
 def update_entity_attribute(
-    entity_attribute_id: int,
-    entity_attribute_data: EntityAttributeUpdate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        entity_attribute_id: int,
+        entity_attribute_data: EntityAttributeUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Update an entity attribute"""
     try:
-        entity_attribute = DoorAttributeCRUD.update_entity_attribute(db, entity_attribute_id, entity_attribute_data, updated_by=current_user.username)
+        entity_attribute = DoorAttributeCRUD.update_entity_attribute(db, entity_attribute_id, entity_attribute_data,
+                                                                     current_user.username)
         if not entity_attribute:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -422,11 +437,12 @@ def update_entity_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.delete("/entity-attributes/{entity_attribute_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_entity_attribute(
-    entity_attribute_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        entity_attribute_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Delete an entity attribute (soft delete)"""
     try:
@@ -449,19 +465,20 @@ def delete_entity_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 # ============================================================================
 # ATTRIBUTE OPTION ENDPOINTS
 # ============================================================================
 
 @router.post("/attribute-options", response_model=AttributeOptionResponse, status_code=status.HTTP_201_CREATED)
 def create_attribute_option(
-    attribute_option_data: AttributeOptionCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        attribute_option_data: AttributeOptionCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Create a new attribute option"""
     try:
-        attribute_option = DoorAttributeCRUD.create_attribute_option(db, attribute_option_data, created_by=current_user.username)
+        attribute_option = DoorAttributeCRUD.create_attribute_option(db, attribute_option_data, current_user.username)
         return attribute_option
     except SQLAlchemyError as e:
         raise HTTPException(
@@ -476,11 +493,12 @@ def create_attribute_option(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/attribute-options", response_model=List[AttributeOptionResponse])
 def get_attribute_options(
-    attribute_id: int = Query(...),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        attribute_id: int = Query(...),
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get all options for a specific attribute"""
     try:
@@ -497,11 +515,12 @@ def get_attribute_options(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/attribute-options/{option_id}", response_model=AttributeOptionResponse)
 def get_attribute_option(
-    option_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        option_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get a specific attribute option by ID"""
     try:
@@ -525,16 +544,18 @@ def get_attribute_option(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.put("/attribute-options/{option_id}", response_model=AttributeOptionResponse)
 def update_attribute_option(
-    option_id: int,
-    attribute_option_data: AttributeOptionUpdate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        option_id: int,
+        attribute_option_data: AttributeOptionUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Update an attribute option"""
     try:
-        attribute_option = DoorAttributeCRUD.update_attribute_option(db, option_id, attribute_option_data, updated_by=current_user.username)
+        attribute_option = DoorAttributeCRUD.update_attribute_option(db, option_id, attribute_option_data,
+                                                                     current_user.username)
         if not attribute_option:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -554,11 +575,12 @@ def update_attribute_option(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.delete("/attribute-options/{option_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_attribute_option(
-    option_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        option_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Delete an attribute option (soft delete)"""
     try:
@@ -581,19 +603,20 @@ def delete_attribute_option(
             detail=f"Internal server error: {e}"
         )
 
+
 # ============================================================================
 # NESTED ATTRIBUTE ENDPOINTS
 # ============================================================================
 
 @router.post("/nested-attributes", response_model=NestedAttributeResponse, status_code=status.HTTP_201_CREATED)
 def create_nested_attribute(
-    nested_attribute_data: NestedAttributeCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        nested_attribute_data: NestedAttributeCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Create a new nested attribute"""
     try:
-        nested_attribute = DoorAttributeCRUD.create_nested_attribute(db, nested_attribute_data, created_by=current_user.username)
+        nested_attribute = DoorAttributeCRUD.create_nested_attribute(db, nested_attribute_data, current_user.username)
         return nested_attribute
     except SQLAlchemyError as e:
         raise HTTPException(
@@ -608,11 +631,12 @@ def create_nested_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/nested-attributes", response_model=List[NestedAttributeResponse])
 def get_nested_attributes(
-    attribute_id: int = Query(...),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        attribute_id: int = Query(...),
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get all nested attributes for a specific attribute"""
     try:
@@ -629,11 +653,12 @@ def get_nested_attributes(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/nested-attributes/{nested_attribute_id}", response_model=NestedAttributeResponse)
 def get_nested_attribute(
-    nested_attribute_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        nested_attribute_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get a specific nested attribute by ID"""
     try:
@@ -657,16 +682,18 @@ def get_nested_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.put("/nested-attributes/{nested_attribute_id}", response_model=NestedAttributeResponse)
 def update_nested_attribute(
-    nested_attribute_id: int,
-    nested_attribute_data: NestedAttributeUpdate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        nested_attribute_id: int,
+        nested_attribute_data: NestedAttributeUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Update a nested attribute"""
     try:
-        nested_attribute = DoorAttributeCRUD.update_nested_attribute(db, nested_attribute_id, nested_attribute_data, updated_by=current_user.username)
+        nested_attribute = DoorAttributeCRUD.update_nested_attribute(db, nested_attribute_id, nested_attribute_data,
+                                                                     current_user.username)
         if not nested_attribute:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -686,11 +713,12 @@ def update_nested_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.delete("/nested-attributes/{nested_attribute_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_nested_attribute(
-    nested_attribute_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        nested_attribute_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Delete a nested attribute (soft delete)"""
     try:
@@ -713,15 +741,16 @@ def delete_nested_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 # ============================================================================
 # UNIT ENDPOINTS
 # ============================================================================
 
 @router.post("/units", response_model=UnitResponse, status_code=status.HTTP_201_CREATED)
 def create_unit(
-    unit_data: UnitCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        unit_data: UnitCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Create a new unit"""
     try:
@@ -732,8 +761,8 @@ def create_unit(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Unit with this name already exists"
             )
-        
-        unit = DoorAttributeCRUD.create_unit(db, unit_data, created_by=current_user.username)
+
+        unit = DoorAttributeCRUD.create_unit(db, unit_data, current_user.username)
         return unit
     except SQLAlchemyError as e:
         raise HTTPException(
@@ -748,13 +777,14 @@ def create_unit(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/units", response_model=List[UnitResponse])
 def get_units(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    active_only: bool = Query(False),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
+        active_only: bool = Query(False),
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get all units with pagination"""
     try:
@@ -774,11 +804,12 @@ def get_units(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/units/{unit_id}", response_model=UnitResponse)
 def get_unit(
-    unit_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        unit_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get a specific unit by ID"""
     try:
@@ -802,16 +833,17 @@ def get_unit(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.put("/units/{unit_id}", response_model=UnitResponse)
 def update_unit(
-    unit_id: int,
-    unit_data: UnitUpdate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        unit_id: int,
+        unit_data: UnitUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Update a unit"""
     try:
-        unit = DoorAttributeCRUD.update_unit(db, unit_id, unit_data, updated_by=current_user.username)
+        unit = DoorAttributeCRUD.update_unit(db, unit_id, unit_data, current_user.username)
         if not unit:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -831,11 +863,12 @@ def update_unit(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.delete("/units/{unit_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_unit(
-    unit_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        unit_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Delete a unit (soft delete)"""
     try:

@@ -14,13 +14,13 @@ from schemas.schemas import (
     QuotationCreate, QuotationUpdate, QuotationResponse,
     QuotationItemCreate, QuotationItemUpdate, QuotationItemResponse,
     QuotationItemAttributeCreate, QuotationItemAttributeUpdate, QuotationItemAttributeResponse,
-    ComprehensiveQuotationCreate
 )
 
 router = APIRouter(
-    prefix="/customer-quotation",
+    prefix="/api/customer-quotation",
     tags=["Customer & Quotation Management"],
 )
+
 
 # ============================================================================
 # CUSTOMER ENDPOINTS
@@ -28,31 +28,13 @@ router = APIRouter(
 
 @router.post("/customers", response_model=CustomerResponse, status_code=status.HTTP_201_CREATED)
 def create_customer(
-    customer_data: CustomerCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        customer_data: CustomerCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Create a new customer"""
     try:
-        # Check if customer email already exists
-        if customer_data.email:
-            existing_customer = CustomerQuotationCRUD.get_customer_by_email(db, customer_data.email)
-            if existing_customer:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Customer with this email already exists"
-                )
-        
-        # Check if customer phone already exists
-        if customer_data.phone:
-            existing_customer = CustomerQuotationCRUD.get_customer_by_phone(db, customer_data.phone)
-            if existing_customer:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Customer with this phone already exists"
-                )
-        
-        customer = CustomerQuotationCRUD.create_customer(db, customer_data, created_by=current_user.username)
+        customer = CustomerQuotationCRUD.create_customer(db, customer_data, current_user.username)
         return customer
     except SQLAlchemyError as e:
         raise HTTPException(
@@ -67,14 +49,15 @@ def create_customer(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/customers", response_model=List[CustomerResponse])
 def get_customers(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    active_only: bool = Query(False),
-    search: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
+        active_only: bool = Query(False),
+        search: Optional[str] = Query(None),
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get all customers with pagination and optional search"""
     try:
@@ -96,11 +79,12 @@ def get_customers(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/customers/{customer_id}", response_model=CustomerResponse)
 def get_customer(
-    customer_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        customer_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get a specific customer by ID"""
     try:
@@ -124,16 +108,17 @@ def get_customer(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.put("/customers/{customer_id}", response_model=CustomerResponse)
 def update_customer(
-    customer_id: int,
-    customer_data: CustomerUpdate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        customer_id: int,
+        customer_data: CustomerUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Update a customer"""
     try:
-        customer = CustomerQuotationCRUD.update_customer(db, customer_id, customer_data, updated_by=current_user.username)
+        customer = CustomerQuotationCRUD.update_customer(db, customer_id, customer_data, current_user.username)
         if not customer:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -153,11 +138,12 @@ def update_customer(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.delete("/customers/{customer_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_customer(
-    customer_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        customer_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Delete a customer (soft delete)"""
     try:
@@ -180,27 +166,24 @@ def delete_customer(
             detail=f"Internal server error: {e}"
         )
 
+
 # ============================================================================
 # QUOTATION ENDPOINTS
 # ============================================================================
 
 @router.post("/quotations", response_model=QuotationResponse, status_code=status.HTTP_201_CREATED)
 def create_quotation(
-    quotation_data: QuotationCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        quotation_data: QuotationCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Create a new quotation"""
     try:
         # Generate quotation number if not provided
         if not quotation_data.quotation_number:
             quotation_data.quotation_number = CustomerQuotationCRUD.generate_quotation_number(db)
-        
-        # Set employee IDs
-        quotation_data.created_by_employee_id = current_user.id
-        quotation_data.updated_by_employee_id = current_user.id
-        
-        quotation = CustomerQuotationCRUD.create_quotation(db, quotation_data, created_by=current_user.username)
+
+        quotation = CustomerQuotationCRUD.create_quotation(db, quotation_data, current_user.username)
         return quotation
     except SQLAlchemyError as e:
         raise HTTPException(
@@ -215,50 +198,16 @@ def create_quotation(
             detail=f"Internal server error: {e}"
         )
 
-
-@router.post("/quotations/comprehensive", response_model=QuotationResponse, status_code=status.HTTP_201_CREATED)
-def create_comprehensive_quotation(
-    quotation_data: ComprehensiveQuotationCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    """Create a complete quotation with items and attributes in one request"""
-    try:
-        # Set employee IDs
-        quotation_data.created_by_employee_id = current_user.id
-        quotation_data.updated_by_employee_id = current_user.id
-        
-        quotation = CustomerQuotationCRUD.create_comprehensive_quotation(
-            db, quotation_data, created_by=current_user.username
-        )
-        return quotation
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database service unavailable: {e}"
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {e}"
-        )
 
 @router.get("/quotations", response_model=List[QuotationResponse])
 def get_quotations(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    customer_id: Optional[int] = Query(None),
-    status: Optional[str] = Query(None),
-    active_only: bool = Query(False),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
+        customer_id: Optional[int] = Query(None),
+        status: Optional[str] = Query(None),
+        active_only: bool = Query(False),
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get all quotations with pagination and optional filtering"""
     try:
@@ -282,11 +231,12 @@ def get_quotations(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/quotations/{quotation_id}", response_model=QuotationResponse)
 def get_quotation(
-    quotation_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        quotation_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get a specific quotation by ID"""
     try:
@@ -310,19 +260,17 @@ def get_quotation(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.put("/quotations/{quotation_id}", response_model=QuotationResponse)
 def update_quotation(
-    quotation_id: int,
-    quotation_data: QuotationUpdate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        quotation_id: int,
+        quotation_data: QuotationUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Update a quotation"""
     try:
-        # Set updated by employee ID
-        quotation_data.updated_by_employee_id = current_user.id
-        
-        quotation = CustomerQuotationCRUD.update_quotation(db, quotation_id, quotation_data, updated_by=current_user.username)
+        quotation = CustomerQuotationCRUD.update_quotation(db, quotation_id, quotation_data, current_user.username)
         if not quotation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -342,11 +290,12 @@ def update_quotation(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.delete("/quotations/{quotation_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_quotation(
-    quotation_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        quotation_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Delete a quotation (soft delete)"""
     try:
@@ -369,11 +318,12 @@ def delete_quotation(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/quotations/{quotation_id}/summary")
 def get_quotation_summary(
-    quotation_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        quotation_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get quotation summary with totals"""
     try:
@@ -397,19 +347,20 @@ def get_quotation_summary(
             detail=f"Internal server error: {e}"
         )
 
+
 # ============================================================================
 # QUOTATION ITEM ENDPOINTS
 # ============================================================================
 
 @router.post("/quotation-items", response_model=QuotationItemResponse, status_code=status.HTTP_201_CREATED)
 def create_quotation_item(
-    item_data: QuotationItemCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        item_data: QuotationItemCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Create a new quotation item"""
     try:
-        quotation_item = CustomerQuotationCRUD.create_quotation_item(db, item_data, created_by=current_user.username)
+        quotation_item = CustomerQuotationCRUD.create_quotation_item(db, item_data, current_user.username)
         return quotation_item
     except SQLAlchemyError as e:
         raise HTTPException(
@@ -424,11 +375,12 @@ def create_quotation_item(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/quotation-items", response_model=List[QuotationItemResponse])
 def get_quotation_items(
-    quotation_id: int = Query(...),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        quotation_id: int = Query(...),
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get all items for a specific quotation"""
     try:
@@ -445,11 +397,12 @@ def get_quotation_items(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/quotation-items/{item_id}", response_model=QuotationItemResponse)
 def get_quotation_item(
-    item_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        item_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get a specific quotation item by ID"""
     try:
@@ -473,16 +426,17 @@ def get_quotation_item(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.put("/quotation-items/{item_id}", response_model=QuotationItemResponse)
 def update_quotation_item(
-    item_id: int,
-    item_data: QuotationItemUpdate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        item_id: int,
+        item_data: QuotationItemUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Update a quotation item"""
     try:
-        item = CustomerQuotationCRUD.update_quotation_item(db, item_id, item_data, updated_by=current_user.username)
+        item = CustomerQuotationCRUD.update_quotation_item(db, item_id, item_data, current_user.username)
         if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -502,11 +456,12 @@ def update_quotation_item(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.delete("/quotation-items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_quotation_item(
-    item_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        item_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Delete a quotation item (soft delete)"""
     try:
@@ -529,19 +484,21 @@ def delete_quotation_item(
             detail=f"Internal server error: {e}"
         )
 
+
 # ============================================================================
 # QUOTATION ITEM ATTRIBUTE ENDPOINTS
 # ============================================================================
 
-@router.post("/quotation-item-attributes", response_model=QuotationItemAttributeResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/quotation-item-attributes", response_model=QuotationItemAttributeResponse,
+             status_code=status.HTTP_201_CREATED)
 def create_quotation_item_attribute(
-    attribute_data: QuotationItemAttributeCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        attribute_data: QuotationItemAttributeCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Create a new quotation item attribute"""
     try:
-        attribute = CustomerQuotationCRUD.create_quotation_item_attribute(db, attribute_data, created_by=current_user.username)
+        attribute = CustomerQuotationCRUD.create_quotation_item_attribute(db, attribute_data, current_user.username)
         return attribute
     except SQLAlchemyError as e:
         raise HTTPException(
@@ -556,11 +513,12 @@ def create_quotation_item_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/quotation-item-attributes", response_model=List[QuotationItemAttributeResponse])
 def get_quotation_item_attributes(
-    quotation_item_id: int = Query(...),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        quotation_item_id: int = Query(...),
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get all attributes for a specific quotation item"""
     try:
@@ -577,11 +535,12 @@ def get_quotation_item_attributes(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.get("/quotation-item-attributes/{attribute_id}", response_model=QuotationItemAttributeResponse)
 def get_quotation_item_attribute(
-    attribute_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        attribute_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Get a specific quotation item attribute by ID"""
     try:
@@ -605,16 +564,18 @@ def get_quotation_item_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.put("/quotation-item-attributes/{attribute_id}", response_model=QuotationItemAttributeResponse)
 def update_quotation_item_attribute(
-    attribute_id: int,
-    attribute_data: QuotationItemAttributeUpdate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        attribute_id: int,
+        attribute_data: QuotationItemAttributeUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Update a quotation item attribute"""
     try:
-        attribute = CustomerQuotationCRUD.update_quotation_item_attribute(db, attribute_id, attribute_data, updated_by=current_user.username)
+        attribute = CustomerQuotationCRUD.update_quotation_item_attribute(db, attribute_id, attribute_data,
+                                                                          current_user.username)
         if not attribute:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -634,11 +595,12 @@ def update_quotation_item_attribute(
             detail=f"Internal server error: {e}"
         )
 
+
 @router.delete("/quotation-item-attributes/{attribute_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_quotation_item_attribute(
-    attribute_id: int,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+        attribute_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
 ):
     """Delete a quotation item attribute (soft delete)"""
     try:

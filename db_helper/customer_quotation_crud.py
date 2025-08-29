@@ -5,15 +5,14 @@ Customer and Quotation Management CRUD Operations
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
-
-from db_helper.models import Customer, Quotation, QuotationItem, QuotationItemAttribute, DoorType, Attribute
+from db_helper.models import Customer, Quotation, QuotationItem, QuotationItemAttribute, DoorType, Attribute, UnitValue, DoorTypeThicknessOption, AttributeOption
 from schemas.schemas import (
     CustomerCreate, CustomerUpdate, CustomerResponse,
     QuotationCreate, QuotationUpdate, QuotationResponse,
     QuotationItemCreate, QuotationItemUpdate, QuotationItemResponse,
     QuotationItemAttributeCreate, QuotationItemAttributeUpdate, QuotationItemAttributeResponse,
-    ComprehensiveQuotationCreate
 )
+from db_helper.cost_calculations import CostCalculator
 
 # Import for comprehensive quotation creation
 from typing import List as TypeList
@@ -25,56 +24,30 @@ class CustomerQuotationCRUD:
     # ============================================================================
     
     @staticmethod
-    def create_customer(db: Session, data: CustomerCreate, created_by: str = None) -> CustomerResponse:
+    def create_customer(db: Session, data: CustomerCreate, username: str = None) -> CustomerResponse:
         customer = Customer(
-            name=data.name,
-            email=data.email,
-            phone=data.phone,
-            address=data.address,
-            city=data.city,
-            state=data.state,
-            postal_code=data.postal_code,
-            country=data.country,
-            is_active=data.is_active,
-            created_by=created_by
+            **data.dict(),
+            created_by=username,
+            updated_by=username
         )
         db.add(customer)
         db.commit()
-        db.refresh(customer)
         return customer
 
     @staticmethod
-    def get_customer_by_id(db: Session, customer_id: int) -> Optional[Customer]:
+    def get_customer_by_id(db: Session, customer_id: int) -> Optional[CustomerResponse]:
         return db.query(Customer).filter(Customer.id == customer_id).first()
 
     @staticmethod
-    def get_customer_by_email(db: Session, email: str) -> Optional[Customer]:
-        return db.query(Customer).filter(Customer.email == email).first()
-
-    @staticmethod
-    def get_customer_by_phone(db: Session, phone: str) -> Optional[Customer]:
-        return db.query(Customer).filter(Customer.phone == phone).first()
-
-    @staticmethod
-    def get_all_customers(db: Session, skip: int = 0, limit: int = 100) -> List[Customer]:
+    def get_all_customers(db: Session, skip: int = 0, limit: int = 100) -> List[CustomerResponse]:
         return db.query(Customer).offset(skip).limit(limit).all()
 
     @staticmethod
-    def get_active_customers(db: Session) -> List[Customer]:
+    def get_active_customers(db: Session) -> List[CustomerResponse]:
         return db.query(Customer).filter(Customer.is_active == True).all()
 
     @staticmethod
-    def search_customers(db: Session, search_term: str) -> List[Customer]:
-        """Search customers by name, email, or phone"""
-        return db.query(Customer).filter(
-            Customer.is_active == True,
-            (Customer.name.ilike(f"%{search_term}%") |
-             Customer.email.ilike(f"%{search_term}%") |
-             Customer.phone.ilike(f"%{search_term}%"))
-        ).all()
-
-    @staticmethod
-    def update_customer(db: Session, customer_id: int, data: CustomerUpdate, updated_by: str = None) -> Optional[Customer]:
+    def update_customer(db: Session, customer_id: int, data: CustomerUpdate, username: str = None) -> Optional[CustomerResponse]:
         customer = db.get(Customer, customer_id)
         if not customer:
             return None
@@ -83,11 +56,10 @@ class CustomerQuotationCRUD:
         for key, value in update_data.items():
             setattr(customer, key, value)
         
-        customer.updated_by = updated_by
+        customer.updated_by = username
         customer.updated_at = datetime.now(timezone.utc)
 
         db.commit()
-        db.refresh(customer)
         return customer
 
     @staticmethod
@@ -106,23 +78,128 @@ class CustomerQuotationCRUD:
     # ============================================================================
     
     @staticmethod
-    def create_quotation(db: Session, data: QuotationCreate, created_by: str = None) -> QuotationResponse:
+    def create_quotation(db: Session, data: QuotationCreate, username: str = None) -> QuotationResponse:
+        """
+        Create a quotation with comprehensive cost calculations
+        """
+        quotation_number = CustomerQuotationCRUD.generate_quotation_number(db)
         quotation = Quotation(
-            customer_id=data.customer_id,
-            quotation_number=data.quotation_number,
-            quotation_date=data.quotation_date,
-            valid_until=data.valid_until,
-            total_amount=data.total_amount,
-            status=data.status,
-            notes=data.notes,
-            created_by_employee_id=data.created_by_employee_id,
-            updated_by_employee_id=data.updated_by_employee_id,
-            is_active=data.is_active,
-            created_by=created_by
+            **data.dict(exclude="items"),
+            quotation_number=quotation_number,
+            created_by=username,
+            updated_by=username
         )
         db.add(quotation)
+        db.flush()
+        
+        total_quotation_cost = 0
+        
+        if data.items:
+            for item in data.items:
+                # Get thickness option for cost calculation
+                thickness_option = db.query(DoorTypeThicknessOption).filter(
+                    DoorTypeThicknessOption.id == item.thickness_option_id
+                ).first()
+                
+                if not thickness_option:
+                    raise ValueError(f"Thickness option {item.thickness_option_id} not found")
+                
+                # Calculate base cost per unit (for one door)
+                base_cost_breakdown = CostCalculator.calculate_base_cost(
+                    length=item.length,
+                    breadth=item.breadth,
+                    thickness_option=thickness_option,
+                    quantity=1
+                )
+                
+                # Create quotation item with initial base costs
+                quotation_item = QuotationItem(
+                    **item.dict(exclude="attributes"),
+                    quotation_id=quotation.id,
+                    created_by=username,
+                    updated_by=username,
+                    base_cost_per_unit=base_cost_breakdown['base_cost_per_unit'],
+                    attribute_cost_per_unit=0,
+                    unit_price_with_attributes=base_cost_breakdown['base_cost_per_unit'],
+                    total_item_cost=base_cost_breakdown['total_base_cost']
+                )
+                db.add(quotation_item)
+                db.flush()
+                
+                item_attribute_costs = []
+                per_unit_attribute_total = 0
+                
+                if item.attributes:
+                    for attr in item.attributes:
+                        # Get the attribute details
+                        attribute = db.query(Attribute).filter(Attribute.id == attr.attribute_id).first()
+                        if not attribute:
+                            continue
+                        
+                        # Get selected option if applicable
+                        selected_option = None
+                        if attr.selected_option_id:
+                            selected_option = db.query(AttributeOption).filter(
+                                AttributeOption.id == attr.selected_option_id
+                            ).first()
+                        
+                        # Calculate attribute cost
+                        attr_cost_breakdown = CostCalculator.calculate_attribute_cost(
+                            db=db,
+                            attribute=attribute,
+                            selected_option=selected_option,
+                            unit_values=attr.unit_values if hasattr(attr, 'unit_values') else None,
+                            double_side=attr.double_side,
+                            direct_cost=attr.direct_cost if hasattr(attr, 'direct_cost') else None,
+                            child_options={}
+                        )
+                        
+                        # Create quotation item attribute with calculated costs
+                        quotation_item_attribute = QuotationItemAttribute(
+                            quotation_item_id=quotation_item.id,
+                            attribute_id=attr.attribute_id,
+                            selected_option_id=attr.selected_option_id,
+                            double_side=attr.double_side,
+                            direct_cost=attr_cost_breakdown['direct_cost'],
+                            calculated_cost=attr_cost_breakdown['calculated_cost'],
+                            total_attribute_cost=attr_cost_breakdown['total_cost'],
+                            created_by=username,
+                            updated_by=username
+                        )
+                        db.add(quotation_item_attribute)
+                        db.flush()
+                        
+                        # Store unit values if provided
+                        if hasattr(attr, 'unit_values') and attr.unit_values:
+                            for unit_value in attr.unit_values:
+                                quotation_item_attribute_unit_value = UnitValue(
+                                    **unit_value.dict(),
+                                    quotation_item_attribute_id=quotation_item_attribute.id,
+                                    created_by=username,
+                                    updated_by=username
+                                )
+                                db.add(quotation_item_attribute_unit_value)
+                                db.flush()
+                        
+                        # Track costs for this item
+                        item_attribute_costs.append(attr_cost_breakdown)
+                        per_unit_attribute_total += attr_cost_breakdown['total_cost']
+                
+                # Compute per-unit with attributes and total for quantity
+                unit_price_with_attributes = base_cost_breakdown['base_cost_per_unit'] + per_unit_attribute_total
+                total_item_cost = unit_price_with_attributes * (item.quantity or 1)
+
+                # Update item with calculated costs
+                quotation_item.base_cost_per_unit = base_cost_breakdown['base_cost_per_unit']
+                quotation_item.attribute_cost_per_unit = per_unit_attribute_total
+                quotation_item.unit_price_with_attributes = unit_price_with_attributes
+                quotation_item.total_item_cost = total_item_cost
+                total_quotation_cost += total_item_cost
+        
+        # Update quotation total
+        quotation.total_amount = total_quotation_cost
+        
         db.commit()
-        db.refresh(quotation)
         return quotation
 
     @staticmethod
@@ -130,9 +207,7 @@ class CustomerQuotationCRUD:
         return db.query(Quotation).options(
             joinedload(Quotation.customer),
             joinedload(Quotation.items).joinedload(QuotationItem.door_type),
-            joinedload(Quotation.items).joinedload(QuotationItem.attributes).joinedload(QuotationItemAttribute.attribute),
-            joinedload(Quotation.created_by_employee),
-            joinedload(Quotation.updated_by_employee)
+            joinedload(Quotation.items).joinedload(QuotationItem.attributes).joinedload(QuotationItemAttribute.attribute)
         ).filter(Quotation.id == quotation_id).first()
 
     @staticmethod
@@ -152,7 +227,7 @@ class CustomerQuotationCRUD:
         ).filter(
             Quotation.customer_id == customer_id,
             Quotation.is_active == True
-        ).order_by(Quotation.quotation_date.desc()).all()
+        ).order_by(Quotation.date.desc()).all()
 
     @staticmethod
     def get_all_quotations(db: Session, skip: int = 0, limit: int = 100) -> List[Quotation]:
@@ -160,7 +235,7 @@ class CustomerQuotationCRUD:
             joinedload(Quotation.customer),
             joinedload(Quotation.items).joinedload(QuotationItem.door_type),
             joinedload(Quotation.items).joinedload(QuotationItem.attributes).joinedload(QuotationItemAttribute.attribute)
-        ).offset(skip).limit(limit).order_by(Quotation.quotation_date.desc()).all()
+        ).offset(skip).limit(limit).order_by(Quotation.date.desc()).all()
 
     @staticmethod
     def get_quotations_by_status(db: Session, status: str) -> List[Quotation]:
@@ -171,7 +246,7 @@ class CustomerQuotationCRUD:
         ).filter(
             Quotation.status == status,
             Quotation.is_active == True
-        ).order_by(Quotation.quotation_date.desc()).all()
+        ).order_by(Quotation.date.desc()).all()
 
     @staticmethod
     def update_quotation(db: Session, quotation_id: int, data: QuotationUpdate, updated_by: str = None) -> Optional[Quotation]:
@@ -201,185 +276,6 @@ class CustomerQuotationCRUD:
         db.commit()
         return True
 
-    @staticmethod
-    def calculate_quotation_total(db: Session, quotation_id: int) -> float:
-        """Calculate total amount for a quotation based on its items"""
-        quotation = db.get(Quotation, quotation_id)
-        if not quotation:
-            return 0.0
-        
-        total = 0.0
-        for item in quotation.items:
-            if item.is_active:
-                total += item.total_price or 0.0
-        
-        return total
-
-    @staticmethod
-    def create_comprehensive_quotation(
-        db: Session, 
-        quotation_data: ComprehensiveQuotationCreate, 
-        created_by: str = None
-    ) -> QuotationResponse:
-        """
-        Create a complete quotation with items and attributes in one transaction.
-        Uses proper Pydantic schemas for type safety and validation.
-        """
-        try:
-            # Start transaction
-            db.begin()
-            
-            # Generate quotation number if not provided
-            if not quotation_data.quotation_number:
-                quotation_data.quotation_number = CustomerQuotationCRUD.generate_quotation_number(db)
-            
-            # Create quotation
-            quotation = Quotation(
-                customer_id=quotation_data.customer_id,
-                quotation_number=quotation_data.quotation_number,
-                quotation_date=quotation_data.quotation_date,
-                valid_until=quotation_data.valid_until,
-                status=quotation_data.status,
-                notes=quotation_data.notes,
-                created_by_employee_id=quotation_data.created_by_employee_id,
-                updated_by_employee_id=quotation_data.updated_by_employee_id,
-                is_active=True,
-                created_by=created_by
-            )
-            
-            db.add(quotation)
-            db.flush()  # Get the quotation ID
-            
-            total_quotation_amount = 0.0
-            
-            # Process each item
-            for item_data in quotation_data.items:
-                # Calculate base item price
-                door_type = db.get(DoorType, item_data.door_type_id)
-                if not door_type:
-                    raise ValueError(f"Door type {item_data.door_type_id} not found")
-                
-                base_price = door_type.base_price or 0.0
-                quantity = item_data.quantity
-                
-                # Calculate item total price
-                item_total_price = base_price * quantity
-                
-                # Create quotation item
-                quotation_item = QuotationItem(
-                    quotation_id=quotation.id,
-                    door_type_id=item_data.door_type_id,
-                    quantity=quantity,
-                    unit_price=base_price,
-                    total_price=item_total_price,
-                    width=item_data.width,
-                    height=item_data.height,
-                    thickness=item_data.thickness,
-                    notes=item_data.notes,
-                    is_active=True,
-                    created_by=created_by
-                )
-                
-                db.add(quotation_item)
-                db.flush()  # Get the item ID
-                
-                # Process item attributes and calculate additional costs
-                attribute_costs = 0.0
-                
-                for attr_data in item_data.attributes:
-                    attribute = db.get(Attribute, attr_data.attribute_id)
-                    if not attribute:
-                        raise ValueError(f"Attribute {attr_data.attribute_id} not found")
-                    
-                    # Calculate attribute cost based on cost type
-                    if attribute.cost_type == "constant":
-                        attr_cost = attribute.fixed_cost or 0.0
-                    elif attribute.cost_type == "variable":
-                        attr_cost = (attribute.cost_per_unit or 0.0) * quantity
-                    elif attribute.cost_type == "direct":
-                        attr_cost = attr_data.cost_adjustment or 0.0
-                    else:  # nested
-                        attr_cost = 0.0  # Will be calculated separately
-                    
-                    # Apply double_side logic - if attribute is double-sided, multiply cost by 2
-                    if attribute.double_side:
-                        attr_cost *= 2
-                    
-                    # Add custom cost adjustment if provided
-                    if attr_data.cost_adjustment:
-                        attr_cost += attr_data.cost_adjustment
-                    
-                    attribute_costs += attr_cost
-                    
-                    # Create quotation item attribute
-                    quotation_item_attribute = QuotationItemAttribute(
-                        quotation_item_id=quotation_item.id,
-                        attribute_id=attr_data.attribute_id,
-                        value=attr_data.value,
-                        cost_adjustment=attr_data.cost_adjustment,
-                        is_active=True,
-                        created_by=created_by
-                        )
-                    
-                    db.add(quotation_item_attribute)
-                
-                # Update item total price with attribute costs
-                item_total_price += attribute_costs
-                quotation_item.total_price = item_total_price
-                
-                # Add to quotation total
-                total_quotation_amount += item_total_price
-            
-            # Update quotation total amount
-            quotation.total_amount = total_quotation_amount
-            
-            # Commit the entire transaction
-            db.commit()
-            
-            # Refresh and return the complete quotation
-            db.refresh(quotation)
-            
-            # Return the quotation with all relationships loaded
-            return CustomerQuotationCRUD.get_quotation_by_id(db, quotation.id)
-            
-        except Exception as e:
-            # Rollback on any error
-            db.rollback()
-            raise e
-
-    @staticmethod
-    def calculate_item_total_with_attributes(db: Session, item_id: int) -> float:
-        """Calculate total price for a quotation item including all attributes"""
-        item = db.get(QuotationItem, item_id)
-        if not item:
-            return 0.0
-        
-        # Base price
-        base_price = item.unit_price or 0.0
-        quantity = item.quantity or 1
-        total = base_price * quantity
-        
-        # Add attribute costs
-        for attr in item.attributes:
-            if attr.is_active and attr.attribute:
-                attr_cost = 0.0
-                
-                if attr.attribute.cost_type == "constant":
-                    attr_cost = attr.attribute.fixed_cost or 0.0
-                elif attr.attribute.cost_type == "variable":
-                    attr_cost = (attr.attribute.cost_per_unit or 0.0) * quantity
-                elif attr.attribute.cost_type == "direct":
-                    attr_cost = attr.cost_adjustment or 0.0
-                # Note: nested attributes are handled separately
-                
-                # Apply double_side logic - if attribute is double-sided, multiply cost by 2
-                if attr.attribute.double_side:
-                    attr_cost *= 2
-                
-                total += attr_cost
-        
-        return total
-
     # ============================================================================
     # QUOTATION ITEM METHODS
     # ============================================================================
@@ -389,14 +285,10 @@ class CustomerQuotationCRUD:
         quotation_item = QuotationItem(
             quotation_id=data.quotation_id,
             door_type_id=data.door_type_id,
+            thickness_option_id=data.thickness_option_id,
+            length=data.length,
+            breadth=data.breadth,
             quantity=data.quantity,
-            unit_price=data.unit_price,
-            total_price=data.total_price,
-            width=data.width,
-            height=data.height,
-            thickness=data.thickness,
-            notes=data.notes,
-            is_active=data.is_active,
             created_by=created_by
         )
         db.add(quotation_item)
@@ -449,29 +341,6 @@ class CustomerQuotationCRUD:
         db.commit()
         return True
 
-    @staticmethod
-    def calculate_item_total(db: Session, item_id: int) -> float:
-        """Calculate total price for a quotation item"""
-        item = db.get(QuotationItem, item_id)
-        if not item:
-            return 0.0
-        
-        base_price = item.unit_price or 0.0
-        quantity = item.quantity or 1
-        
-        # Calculate base total
-        total = base_price * quantity
-        
-        # Add attribute costs
-        for attr in item.attributes:
-            if attr.is_active:
-                if attr.attribute.cost_type == 'constant':
-                    total += attr.attribute.fixed_cost or 0.0
-                elif attr.attribute.cost_type == 'variable':
-                    total += (attr.attribute.cost_per_unit or 0.0) * quantity
-        
-        return total
-
     # ============================================================================
     # QUOTATION ITEM ATTRIBUTE METHODS
     # ============================================================================
@@ -481,9 +350,9 @@ class CustomerQuotationCRUD:
         quotation_item_attribute = QuotationItemAttribute(
             quotation_item_id=data.quotation_item_id,
             attribute_id=data.attribute_id,
-            value=data.value,
-            cost_adjustment=data.cost_adjustment,
-            is_active=data.is_active,
+            selected_option_id=data.selected_option_id,
+            double_side=data.double_side,
+            direct_cost=data.direct_cost,
             created_by=created_by
         )
         db.add(quotation_item_attribute)
@@ -541,8 +410,6 @@ class CustomerQuotationCRUD:
     @staticmethod
     def generate_quotation_number(db: Session) -> str:
         """Generate a unique quotation number"""
-        from datetime import datetime
-        
         # Get current year and month
         now = datetime.now()
         year_month = now.strftime("%Y%m")
@@ -579,16 +446,31 @@ class CustomerQuotationCRUD:
         
         total_items = len(items)
         total_quantity = sum(item.quantity or 0 for item in items)
-        total_amount = sum(item.total_price or 0 for item in items)
+        total_amount = sum(float(item.total_item_cost or 0) for item in items)
         
         return {
             "quotation_id": quotation.id,
-            "quotation_number": quotation.quotation_number,
+            "quotation_number": getattr(quotation, 'quotation_number', None),
             "customer_name": quotation.customer.name if quotation.customer else None,
             "total_items": total_items,
             "total_quantity": total_quantity,
             "total_amount": total_amount,
             "status": quotation.status,
-            "quotation_date": quotation.quotation_date,
-            "valid_until": quotation.valid_until
+            "date": quotation.date,
+            "valid_until": getattr(quotation, 'valid_until', None)
         }
+
+    @staticmethod
+    def get_quotation_cost_breakdown(db: Session, quotation_id: int) -> Dict[str, Any]:
+        """
+        Get detailed cost breakdown for a quotation including all calculations
+        """
+        return CostCalculator.get_quotation_cost_breakdown(db, quotation_id)
+
+    @staticmethod
+    def recalculate_quotation_costs(db: Session, quotation_id: int, username: str = None) -> Dict[str, Any]:
+        """
+        Recalculate all costs for an existing quotation
+        Useful when attribute costs or thickness options change
+        """
+        return CostCalculator.recalculate_quotation_costs(db, quotation_id, username)
