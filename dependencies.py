@@ -18,10 +18,14 @@ from schemas.schemas import TokenData
 # DATABASE CONFIGURATION
 # ============================================================================
 
-DATABASE_URL = "postgresql://postgres:1A58gW3HQ0VrZZsT@db.aqwiookdxlsskmznqkgy.supabase.co:5432/postgres"
-
-engine = create_engine(DATABASE_URL)
+try:
+    DATABASE_URL = "postgresql://postgres:1A58gW3HQ0VrZZsT@db.aqwiookdxlsskmznqkgy.supabase.co:5432/postgres"
+    engine = create_engine(DATABASE_URL)
+except:
+    DATABASE_URL = "postgresql://postgres:1A58gW3HQ0VrZZsT@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
+    engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 # ============================================================================
 # PASSWORD HASHING
