@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 
-from db_helper.models import DoorType, Attribute, EntityAttribute, AttributeOption, NestedAttribute, Unit, DoorTypeThicknessOption
+from db_helper.models import DoorType, Attribute, EntityAttribute, AttributeOption, NestedAttribute, Unit, \
+    DoorTypeThicknessOption
 from schemas.schemas import (
     DoorTypeCreate, DoorTypeUpdate, DoorTypeResponse,
     AttributeCreate, AttributeUpdate, AttributeResponse,
@@ -21,7 +22,7 @@ class DoorAttributeCRUD:
     # ============================================================================
     # DOOR TYPE METHODS
     # ============================================================================
-    
+
     @staticmethod
     def create_door_type(db: Session, data: DoorTypeCreate, username: str = None) -> DoorTypeResponse:
         door_type = DoorType(
@@ -54,7 +55,7 @@ class DoorAttributeCRUD:
     @staticmethod
     def get_all_door_types(db: Session, skip: int = 0, limit: int = 100) -> List[DoorTypeResponse]:
         return db.query(DoorType).options(
-            joinedload(DoorType.attributes).joinedload(EntityAttribute.attribute),
+            joinedload(DoorType.entity_attributes).joinedload(EntityAttribute.attribute).joinedload(Attribute.options),
             joinedload(DoorType.thickness_options)
         ).offset(skip).limit(limit).all()
 
@@ -66,7 +67,8 @@ class DoorAttributeCRUD:
         ).filter(DoorType.is_active == True).all()
 
     @staticmethod
-    def update_door_type(db: Session, door_type_id: int, data: DoorTypeUpdate, username: str = None) -> Optional[DoorTypeResponse]:
+    def update_door_type(db: Session, door_type_id: int, data: DoorTypeUpdate, username: str = None) -> Optional[
+        DoorTypeResponse]:
         door_type = db.get(DoorType, door_type_id)
         if not door_type:
             return None
@@ -74,7 +76,7 @@ class DoorAttributeCRUD:
         update_data = data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(door_type, key, value)
-        
+
         door_type.updated_by = username
         door_type.updated_at = datetime.now(timezone.utc)
 
@@ -86,7 +88,7 @@ class DoorAttributeCRUD:
         door_type = db.get(DoorType, door_type_id)
         if not door_type:
             return False
-        
+
         door_type.is_active = False
         db.commit()
         return True
@@ -96,7 +98,7 @@ class DoorAttributeCRUD:
         door_type = db.get(DoorType, door_type_id)
         if not door_type:
             return False
-        
+
         # Soft delete - just mark as inactive
         db.delete(door_type)
         db.commit()
@@ -105,7 +107,7 @@ class DoorAttributeCRUD:
     # ============================================================================
     # ATTRIBUTE METHODS
     # ============================================================================
-    
+
     @staticmethod
     def create_attribute(db: Session, data: AttributeCreate, username: str = None) -> AttributeResponse:
         attribute = Attribute(
@@ -150,7 +152,8 @@ class DoorAttributeCRUD:
         ).filter(Attribute.is_active == True).all()
 
     @staticmethod
-    def update_attribute(db: Session, attribute_id: int, data: AttributeUpdate, username: str = None) -> Optional[AttributeResponse]:
+    def update_attribute(db: Session, attribute_id: int, data: AttributeUpdate, username: str = None) -> Optional[
+        AttributeResponse]:
         attribute = db.get(Attribute, attribute_id)
         if not attribute:
             return None
@@ -158,7 +161,7 @@ class DoorAttributeCRUD:
         update_data = data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(attribute, key, value)
-        
+
         attribute.updated_by = username
         attribute.updated_at = datetime.now(timezone.utc)
 
@@ -170,7 +173,7 @@ class DoorAttributeCRUD:
         attribute = db.get(Attribute, attribute_id)
         if not attribute:
             return False
-        
+
         # Soft delete - just mark as inactive
         attribute.is_active = False
         db.commit()
@@ -179,9 +182,10 @@ class DoorAttributeCRUD:
     # ============================================================================
     # ENTITY ATTRIBUTE METHODS
     # ============================================================================
-    
+
     @staticmethod
-    def create_entity_attribute(db: Session, data: EntityAttributeCreate, username: str = None) -> EntityAttributeResponse:
+    def create_entity_attribute(db: Session, data: EntityAttributeCreate,
+                                username: str = None) -> EntityAttributeResponse:
         entity_attribute = EntityAttribute(
             **data.dict(),
             created_by=username,
@@ -208,7 +212,8 @@ class DoorAttributeCRUD:
         ).filter(EntityAttribute.id == entity_attribute_id).first()
 
     @staticmethod
-    def update_entity_attribute(db: Session, entity_attribute_id: int, data: EntityAttributeUpdate, username: str = None) -> Optional[EntityAttributeResponse]:
+    def update_entity_attribute(db: Session, entity_attribute_id: int, data: EntityAttributeUpdate,
+                                username: str = None) -> Optional[EntityAttributeResponse]:
         entity_attribute = db.get(EntityAttribute, entity_attribute_id)
         if not entity_attribute:
             return None
@@ -216,7 +221,7 @@ class DoorAttributeCRUD:
         update_data = data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(entity_attribute, key, value)
-        
+
         entity_attribute.updated_by = username
         entity_attribute.updated_at = datetime.now(timezone.utc)
 
@@ -228,7 +233,7 @@ class DoorAttributeCRUD:
         entity_attribute = db.get(EntityAttribute, entity_attribute_id)
         if not entity_attribute:
             return False
-        
+
         # Soft delete - just mark as inactive
         entity_attribute.is_active = False
         db.commit()
@@ -237,9 +242,10 @@ class DoorAttributeCRUD:
     # ============================================================================
     # ATTRIBUTE OPTION METHODS
     # ============================================================================
-    
+
     @staticmethod
-    def create_attribute_option(db: Session, data: AttributeOptionCreate, username: str = None) -> AttributeOptionResponse:
+    def create_attribute_option(db: Session, data: AttributeOptionCreate,
+                                username: str = None) -> AttributeOptionResponse:
         attribute_option = AttributeOption(
             **data.dict(),
             created_by=username,
@@ -261,7 +267,8 @@ class DoorAttributeCRUD:
         return db.query(AttributeOption).filter(AttributeOption.id == option_id).first()
 
     @staticmethod
-    def update_attribute_option(db: Session, option_id: int, data: AttributeOptionUpdate, username: str = None) -> Optional[AttributeOptionResponse]:
+    def update_attribute_option(db: Session, option_id: int, data: AttributeOptionUpdate, username: str = None) -> \
+    Optional[AttributeOptionResponse]:
         attribute_option = db.get(AttributeOption, option_id)
         if not attribute_option:
             return None
@@ -269,7 +276,7 @@ class DoorAttributeCRUD:
         update_data = data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(attribute_option, key, value)
-        
+
         attribute_option.updated_by = username
         attribute_option.updated_at = datetime.now(timezone.utc)
 
@@ -281,7 +288,7 @@ class DoorAttributeCRUD:
         attribute_option = db.get(AttributeOption, option_id)
         if not attribute_option:
             return False
-        
+
         # Soft delete - just mark as inactive
         attribute_option.is_active = False
         db.commit()
@@ -290,17 +297,18 @@ class DoorAttributeCRUD:
     # ============================================================================
     # NESTED ATTRIBUTE METHODS
     # ============================================================================
-    
+
     @staticmethod
-    def create_nested_attribute(db: Session, data: NestedAttributeCreate, username: str = None) -> NestedAttributeResponse:
+    def create_nested_attribute(db: Session, data: NestedAttributeCreate,
+                                username: str = None) -> NestedAttributeResponse:
         # Validate the relationship before creating
         validation = DoorAttributeCRUD.validate_nested_attribute_relationship(
             db, data.parent_attribute_id, data.child_attribute_id
         )
-        
+
         if not validation['is_valid']:
             raise ValueError(f"Invalid nested attribute relationship: {'; '.join(validation['errors'])}")
-        
+
         nested_attribute = NestedAttribute(
             **data.dict(),
             created_by=username,
@@ -329,7 +337,7 @@ class DoorAttributeCRUD:
             NestedAttribute.parent_attribute_id == parent_attribute_id,
             NestedAttribute.is_active == True
         ).order_by(NestedAttribute.relationship_order).all()
-        
+
         return [nested_attr.child_attribute for nested_attr in nested_attrs]
 
     @staticmethod
@@ -341,13 +349,13 @@ class DoorAttributeCRUD:
             NestedAttribute.child_attribute_id == child_attribute_id,
             NestedAttribute.is_active == True
         ).all()
-        
+
         return [nested_attr.parent_attribute for nested_attr in nested_attrs]
 
     @staticmethod
     def check_attribute_dependencies(db: Session, attribute_id: int) -> dict:
         """Check if an attribute has dependencies that would prevent deletion"""
-        
+
         dependencies = {
             'has_nested_children': False,
             'has_nested_parents': False,
@@ -355,53 +363,53 @@ class DoorAttributeCRUD:
             'can_be_deleted': True,
             'dependency_details': []
         }
-        
+
         # Check if it's a parent attribute (has nested children)
         nested_children = db.query(NestedAttribute).filter(
             NestedAttribute.parent_attribute_id == attribute_id,
             NestedAttribute.is_active == True
         ).count()
-        
+
         if nested_children > 0:
             dependencies['has_nested_children'] = True
             dependencies['can_be_deleted'] = False
             dependencies['dependency_details'].append(f"Has {nested_children} nested child attributes")
-        
+
         # Check if it's a child attribute (has nested parents)
         nested_parents = db.query(NestedAttribute).filter(
             NestedAttribute.child_attribute_id == attribute_id,
             NestedAttribute.is_active == True
         ).count()
-        
+
         if nested_parents > 0:
             dependencies['has_nested_parents'] = True
             dependencies['can_be_deleted'] = False
             dependencies['dependency_details'].append(f"Used by {nested_parents} parent attributes")
-        
+
         # Check if it's used by any entities
         entity_usage = db.query(EntityAttribute).filter(
             EntityAttribute.attribute_id == attribute_id
         ).count()
-        
+
         if entity_usage > 0:
             dependencies['is_used_by_entities'] = True
             dependencies['can_be_deleted'] = False
             dependencies['dependency_details'].append(f"Used by {entity_usage} entities")
-        
+
         return dependencies
 
     @staticmethod
     def get_attribute_hierarchy_tree(db: Session, attribute_id: int, max_depth: int = 5) -> dict:
         """Get the complete attribute hierarchy tree for a given attribute"""
-        
+
         def build_tree(attr_id: int, depth: int = 0) -> dict:
             if depth > max_depth:
                 return None
-            
+
             attr = db.query(Attribute).filter(Attribute.id == attr_id).first()
             if not attr:
                 return None
-            
+
             tree = {
                 'id': attr.id,
                 'name': attr.name,
@@ -412,28 +420,29 @@ class DoorAttributeCRUD:
                 'depth': depth,
                 'children': []
             }
-            
+
             # If it's a nested attribute, get children
             if attr.cost_type == 'nested':
                 nested_children = db.query(NestedAttribute).filter(
                     NestedAttribute.parent_attribute_id == attr_id,
                     NestedAttribute.is_active == True
                 ).order_by(NestedAttribute.relationship_order).all()
-                
+
                 for nested_child in nested_children:
                     child_tree = build_tree(nested_child.child_attribute_id, depth + 1)
                     if child_tree:
                         tree['children'].append(child_tree)
-            
+
             return tree
-        
+
         return build_tree(attribute_id)
 
     @staticmethod
-    def bulk_create_nested_attributes(db: Session, parent_attribute_id: int, child_attribute_ids: List[int], username: str = None) -> List[NestedAttributeResponse]:
+    def bulk_create_nested_attributes(db: Session, parent_attribute_id: int, child_attribute_ids: List[int],
+                                      username: str = None) -> List[NestedAttributeResponse]:
         """Bulk create nested attributes for a parent attribute"""
         nested_attributes = []
-        
+
         for order, child_id in enumerate(child_attribute_ids, 1):
             nested_attr = NestedAttribute(
                 parent_attribute_id=parent_attribute_id,
@@ -444,51 +453,51 @@ class DoorAttributeCRUD:
                 updated_by=username
             )
             nested_attributes.append(nested_attr)
-        
+
         db.add_all(nested_attributes)
         db.commit()
-        
+
         return nested_attributes
 
     @staticmethod
     def validate_nested_attribute_relationship(db: Session, parent_attribute_id: int, child_attribute_id: int) -> dict:
         """Validate that a nested attribute relationship is valid (no circular dependencies)"""
-        
+
         validation_result = {
             'is_valid': True,
             'errors': [],
             'warnings': []
         }
-        
+
         # Check if parent and child are the same
         if parent_attribute_id == child_attribute_id:
             validation_result['is_valid'] = False
             validation_result['errors'].append("Parent and child attributes cannot be the same")
             return validation_result
-        
+
         # Check if both attributes exist
         parent_attr = db.query(Attribute).filter(Attribute.id == parent_attribute_id).first()
         child_attr = db.query(Attribute).filter(Attribute.id == child_attribute_id).first()
-        
+
         if not parent_attr:
             validation_result['is_valid'] = False
             validation_result['errors'].append("Parent attribute does not exist")
             return validation_result
-        
+
         if not child_attr:
             validation_result['is_valid'] = False
             validation_result['errors'].append("Child attribute does not exist")
             return validation_result
-        
+
         # Check if parent attribute is of type 'nested'
         if parent_attr.cost_type != 'nested':
             validation_result['warnings'].append("Parent attribute is not of type 'nested'")
-        
+
         # Check for circular dependencies
         if DoorAttributeCRUD._would_create_circular_dependency(db, parent_attribute_id, child_attribute_id):
             validation_result['is_valid'] = False
             validation_result['errors'].append("This relationship would create a circular dependency")
-        
+
         return validation_result
 
     @staticmethod
@@ -496,33 +505,34 @@ class DoorAttributeCRUD:
         """Helper method to check for circular dependencies"""
         if visited is None:
             visited = set()
-        
+
         if parent_id in visited:
             return True
-        
+
         visited.add(parent_id)
-        
+
         # Check if the child is already a parent of the parent (directly or indirectly)
         nested_parents = db.query(NestedAttribute).filter(
             NestedAttribute.child_attribute_id == parent_id,
             NestedAttribute.is_active == True
         ).all()
-        
+
         for nested_parent in nested_parents:
             if nested_parent.parent_attribute_id == child_id:
                 return True
-            
-            if DoorAttributeCRUD._would_create_circular_dependency(db, nested_parent.parent_attribute_id, child_id, visited.copy()):
+
+            if DoorAttributeCRUD._would_create_circular_dependency(db, nested_parent.parent_attribute_id, child_id,
+                                                                   visited.copy()):
                 return True
-        
+
         return False
 
     @staticmethod
     def get_nested_attribute_cost_breakdown(
-        db: Session, 
-        attribute_id: int, 
-        quantity: float = 1.0,
-        child_options: Optional[Dict[int, int]] = None
+            db: Session,
+            attribute_id: int,
+            quantity: float = 1.0,
+            child_options: Optional[Dict[int, int]] = None
     ) -> dict:
         """
         Get a detailed cost breakdown for a nested attribute
@@ -533,7 +543,7 @@ class DoorAttributeCRUD:
             quantity: Quantity multiplier
             child_options: Dictionary mapping child_attribute_id to selected_option_id
         """
-        
+
         breakdown = {
             'attribute_id': attribute_id,
             'total_cost': 0.0,
@@ -541,15 +551,15 @@ class DoorAttributeCRUD:
             'quantity': quantity,
             'has_nested_components': False
         }
-        
+
         # Get the main attribute
         main_attribute = db.query(Attribute).filter(Attribute.id == attribute_id).first()
         if not main_attribute:
             return breakdown
-        
+
         breakdown['attribute_name'] = main_attribute.name
         breakdown['cost_type'] = main_attribute.cost_type
-        
+
         if main_attribute.cost_type != 'nested':
             # If it's not nested, return the direct cost
             if main_attribute.cost_type == 'constant':
@@ -572,12 +582,12 @@ class DoorAttributeCRUD:
                     'description': f'Variable cost per unit × {quantity}'
                 })
             return breakdown
-        
+
         # It's a nested attribute, get all child components
         breakdown['has_nested_components'] = True
-        
+
         child_attributes = DoorAttributeCRUD.get_child_attributes_for_parent(db, attribute_id)
-        
+
         for child_attr in child_attributes:
             # Get selected option for this child attribute if provided
             selected_option = None
@@ -585,7 +595,7 @@ class DoorAttributeCRUD:
                 selected_option = db.query(AttributeOption).filter(
                     AttributeOption.id == child_options[child_attr.id]
                 ).first()
-            
+
             if child_attr.cost_type == 'constant':
                 # Use selected option cost if available, otherwise fallback to attribute fixed_cost
                 if selected_option:
@@ -594,7 +604,7 @@ class DoorAttributeCRUD:
                 else:
                     cost = child_attr.fixed_cost or 0.0
                     option_name = "Default"
-                
+
                 breakdown['total_cost'] += cost
                 breakdown['cost_components'].append({
                     'name': child_attr.name,
@@ -603,16 +613,17 @@ class DoorAttributeCRUD:
                     'selected_option': option_name,
                     'description': f'Fixed cost component: {option_name}'
                 })
-                
+
             elif child_attr.cost_type == 'variable':
                 # Use selected option cost_per_unit if available, otherwise fallback to attribute cost_per_unit
                 option_cost_per_unit = None
                 if selected_option and getattr(selected_option, 'cost_per_unit', None):
                     option_cost_per_unit = selected_option.cost_per_unit
-                
-                cost_per_unit = option_cost_per_unit if option_cost_per_unit is not None else (child_attr.cost_per_unit or 0.0)
+
+                cost_per_unit = option_cost_per_unit if option_cost_per_unit is not None else (
+                            child_attr.cost_per_unit or 0.0)
                 cost = cost_per_unit * quantity
-                
+
                 breakdown['total_cost'] += cost
                 breakdown['cost_components'].append({
                     'name': child_attr.name,
@@ -623,7 +634,7 @@ class DoorAttributeCRUD:
                     'selected_option': selected_option.name if selected_option else None,
                     'description': f'Variable cost component × {quantity}'
                 })
-                
+
             elif child_attr.cost_type == 'nested':
                 # Recursively get breakdown for nested child
                 # Pass down child options for deeper nesting levels
@@ -638,7 +649,7 @@ class DoorAttributeCRUD:
                     'description': 'Nested component cost',
                     'sub_breakdown': child_breakdown
                 })
-        
+
         return breakdown
 
     @staticmethod
@@ -649,7 +660,8 @@ class DoorAttributeCRUD:
         ).filter(NestedAttribute.id == nested_attribute_id).first()
 
     @staticmethod
-    def update_nested_attribute(db: Session, nested_attribute_id: int, data: NestedAttributeUpdate, username: str = None) -> Optional[NestedAttributeResponse]:
+    def update_nested_attribute(db: Session, nested_attribute_id: int, data: NestedAttributeUpdate,
+                                username: str = None) -> Optional[NestedAttributeResponse]:
         nested_attribute = db.get(NestedAttribute, nested_attribute_id)
         if not nested_attribute:
             return None
@@ -657,7 +669,7 @@ class DoorAttributeCRUD:
         update_data = data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(nested_attribute, key, value)
-        
+
         nested_attribute.updated_by = username
         nested_attribute.updated_at = datetime.now(timezone.utc)
 
@@ -670,7 +682,7 @@ class DoorAttributeCRUD:
         nested_attribute = db.get(NestedAttribute, nested_attribute_id)
         if not nested_attribute:
             return False
-        
+
         # Soft delete - just mark as inactive
         nested_attribute.is_active = False
         db.commit()
@@ -679,7 +691,7 @@ class DoorAttributeCRUD:
     # ============================================================================
     # UNIT METHODS
     # ============================================================================
-    
+
     @staticmethod
     def create_unit(db: Session, data: UnitCreate, username: str = None) -> UnitResponse:
         unit = Unit(
@@ -712,7 +724,7 @@ class DoorAttributeCRUD:
         update_data = data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(unit, key, value)
-        
+
         unit.updated_by = username
         unit.updated_at = datetime.now(timezone.utc)
 
@@ -724,7 +736,7 @@ class DoorAttributeCRUD:
         unit = db.get(Unit, unit_id)
         if not unit:
             return False
-        
+
         # Soft delete - just mark as inactive
         unit.is_active = False
         db.commit()

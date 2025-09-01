@@ -10,8 +10,8 @@ Functional Groups:
 """
 
 from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, PrimaryKeyConstraint, func, \
-    Enum as SAEnum, Date, Boolean, CheckConstraint, UniqueConstraint
-from sqlalchemy.orm import relationship
+    Enum as SAEnum, Date, Boolean, CheckConstraint, UniqueConstraint, and_
+from sqlalchemy.orm import relationship, foreign
 from sqlalchemy.ext.declarative import declarative_base
 from enum import Enum as PyEnum
 from datetime import date, datetime, timezone
@@ -107,6 +107,16 @@ class DoorType(Base):
         secondaryjoin="EntityAttribute.attribute_id == Attribute.id",
         back_populates='door_types'
     )
+
+    entity_attributes = relationship(
+        'EntityAttribute',
+        primaryjoin=lambda: and_(
+            foreign(EntityAttribute.entity_id) == DoorType.id,
+            EntityAttribute.entity_type == 'door'
+        ),
+        order_by='EntityAttribute.order'
+    )
+
     # One-to-many to quotation items
     items = relationship('QuotationItem', back_populates='door_type')
     # One-to-many to thickness options

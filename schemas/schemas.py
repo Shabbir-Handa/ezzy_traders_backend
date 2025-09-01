@@ -133,7 +133,7 @@ class DoorTypeUpdate(DoorTypeBase):
 
 class DoorTypeResponse(DoorTypeBase):
     id: int
-    attributes: List["EntityAttributeResponse"] = []
+    entity_attributes: List["EntityAttributeResponse"] = []
     thickness_options: List["DoorTypeThicknessOptionResponse"] = []
     created_by: Optional[str] = None
     updated_by: Optional[str] = None
@@ -260,7 +260,6 @@ class EntityAttributeBase(BaseModel):
     required: bool = False
     order: int = 0
     custom_value: Optional[str] = None
-    is_active: bool = True
 
 
 class EntityAttributeCreate(EntityAttributeBase):
@@ -274,7 +273,6 @@ class EntityAttributeUpdate(EntityAttributeBase):
     required: Optional[bool] = None
     order: Optional[int] = None
     custom_value: Optional[str] = None
-    is_active: Optional[bool] = None
 
 
 class EntityAttributeResponse(EntityAttributeBase):
