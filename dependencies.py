@@ -26,7 +26,6 @@ except:
     engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-
 # ============================================================================
 # PASSWORD HASHING
 # ============================================================================
@@ -129,6 +128,7 @@ async def get_user(
         raise credentials_exception
 
     return user
+
 
 async def get_current_active_user(
         current_user: Annotated[Employee, Depends(get_current_user)]
