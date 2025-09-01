@@ -2,7 +2,7 @@ steps:
 
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', '${_REPO_REGION}/${_PROJ_ID}/${_REPO_NAME}/${_SERVICE_NAME}', '.']
-  dir: 'ezzy_traders_backend'
+  dir: '.'
 
 - name: 'gcr.io/cloud-builders/docker'
   args: ['push', '${_REPO_REGION}/${_PROJ_ID}/${_REPO_NAME}/${_SERVICE_NAME}']
