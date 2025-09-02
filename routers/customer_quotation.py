@@ -204,8 +204,7 @@ def get_quotations(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
         customer_id: Optional[int] = Query(None),
-        status: Optional[str] = Query(None),
-        active_only: bool = Query(False),
+        status_quot: Optional[str] = Query(None),
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
@@ -214,9 +213,7 @@ def get_quotations(
         if customer_id:
             quotations = CustomerQuotationCRUD.get_quotations_by_customer(db, customer_id)
         elif status:
-            quotations = CustomerQuotationCRUD.get_quotations_by_status(db, status)
-        elif active_only:
-            quotations = CustomerQuotationCRUD.get_all_quotations(db, skip=skip, limit=limit)
+            quotations = CustomerQuotationCRUD.get_quotations_by_status(db, status_quot)
         else:
             quotations = CustomerQuotationCRUD.get_all_quotations(db, skip=skip, limit=limit)
         return quotations

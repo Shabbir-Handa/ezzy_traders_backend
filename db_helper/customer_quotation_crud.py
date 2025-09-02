@@ -225,8 +225,7 @@ class CustomerQuotationCRUD:
             joinedload(Quotation.items).joinedload(QuotationItem.door_type),
             joinedload(Quotation.items).joinedload(QuotationItem.attributes).joinedload(QuotationItemAttribute.attribute)
         ).filter(
-            Quotation.customer_id == customer_id,
-            Quotation.is_active == True
+            Quotation.customer_id == customer_id
         ).order_by(Quotation.date.desc()).all()
 
     @staticmethod
@@ -244,8 +243,7 @@ class CustomerQuotationCRUD:
             joinedload(Quotation.items).joinedload(QuotationItem.door_type),
             joinedload(Quotation.items).joinedload(QuotationItem.attributes).joinedload(QuotationItemAttribute.attribute)
         ).filter(
-            Quotation.status == status,
-            Quotation.is_active == True
+            Quotation.status == status
         ).order_by(Quotation.date.desc()).all()
 
     @staticmethod
