@@ -479,7 +479,7 @@ class UnitValueBase(BaseModel):
 
 
 class UnitValueCreate(UnitValueBase):
-    pass
+    quotation_item_attribute_id: Optional[int] = None
 
 
 class UnitValueUpdate(UnitValueBase):
