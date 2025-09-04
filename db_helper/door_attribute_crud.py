@@ -201,8 +201,7 @@ class DoorAttributeCRUD:
             joinedload(EntityAttribute.attribute)
         ).filter(
             EntityAttribute.entity_type == entity_type,
-            EntityAttribute.entity_id == entity_id,
-            EntityAttribute.is_active == True
+            EntityAttribute.entity_id == entity_id
         ).order_by(EntityAttribute.order).all()
 
     @staticmethod
