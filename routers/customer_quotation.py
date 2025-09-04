@@ -179,10 +179,6 @@ def create_quotation(
 ):
     """Create a new quotation"""
     try:
-        # Generate quotation number if not provided
-        if not quotation_data.quotation_number:
-            quotation_data.quotation_number = CustomerQuotationCRUD.generate_quotation_number(db)
-
         quotation = CustomerQuotationCRUD.create_quotation(db, quotation_data, current_user.username)
         return quotation
     except SQLAlchemyError as e:

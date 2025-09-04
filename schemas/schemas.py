@@ -382,6 +382,7 @@ class QuotationUpdate(QuotationBase):
 
 class QuotationResponse(QuotationBase):
     id: int
+    quotation_number: str
     total_amount: Optional[Decimal] = None
     customer: "CustomerResponse"
     items: List["QuotationItemResponse"] = []

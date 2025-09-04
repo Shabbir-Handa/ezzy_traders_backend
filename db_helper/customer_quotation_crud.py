@@ -111,11 +111,10 @@ class CustomerQuotationCRUD:
                     thickness_option=thickness_option,
                     quantity=1
                 )
-                
+                item.quotation_id = quotation.id
                 # Create quotation item with initial base costs
                 quotation_item = QuotationItem(
                     **item.dict(exclude="attributes"),
-                    quotation_id=quotation.id,
                     created_by=username,
                     updated_by=username,
                     base_cost_per_unit=base_cost_breakdown['base_cost_per_unit'],
@@ -172,9 +171,9 @@ class CustomerQuotationCRUD:
                         # Store unit values if provided
                         if hasattr(attr, 'unit_values') and attr.unit_values:
                             for unit_value in attr.unit_values:
+                                unit_value.quotation_item_attribute_id = quotation_item_attribute.id
                                 quotation_item_attribute_unit_value = UnitValue(
                                     **unit_value.dict(),
-                                    quotation_item_attribute_id=quotation_item_attribute.id,
                                     created_by=username,
                                     updated_by=username
                                 )
