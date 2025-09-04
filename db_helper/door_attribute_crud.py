@@ -234,7 +234,7 @@ class DoorAttributeCRUD:
             return False
 
         # Soft delete - just mark as inactive
-        entity_attribute.is_active = False
+        db.delete(entity_attribute)
         db.commit()
         return True
 
