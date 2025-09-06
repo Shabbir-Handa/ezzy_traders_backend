@@ -202,7 +202,7 @@ class CustomerQuotationCRUD:
         return quotation
 
     @staticmethod
-    def get_quotation_by_id(db: Session, quotation_id: int) -> Optional[Quotation]:
+    def get_quotation_by_id(db: Session, quotation_id: int) -> Optional[QuotationResponse]:
         return db.query(Quotation).options(
             joinedload(Quotation.customer),
             joinedload(Quotation.items).joinedload(QuotationItem.door_type),
@@ -210,7 +210,7 @@ class CustomerQuotationCRUD:
         ).filter(Quotation.id == quotation_id).first()
 
     @staticmethod
-    def get_quotation_by_number(db: Session, quotation_number: str) -> Optional[Quotation]:
+    def get_quotation_by_number(db: Session, quotation_number: str) -> Optional[QuotationResponse]:
         return db.query(Quotation).options(
             joinedload(Quotation.customer),
             joinedload(Quotation.items).joinedload(QuotationItem.door_type),
@@ -218,7 +218,7 @@ class CustomerQuotationCRUD:
         ).filter(Quotation.quotation_number == quotation_number).first()
 
     @staticmethod
-    def get_quotations_by_customer(db: Session, customer_id: int) -> List[Quotation]:
+    def get_quotations_by_customer(db: Session, customer_id: int) -> List[QuotationResponse]:
         return db.query(Quotation).options(
             joinedload(Quotation.customer),
             joinedload(Quotation.items).joinedload(QuotationItem.door_type),
@@ -228,15 +228,15 @@ class CustomerQuotationCRUD:
         ).order_by(Quotation.date.desc()).all()
 
     @staticmethod
-    def get_all_quotations(db: Session, skip: int = 0, limit: int = 100) -> List[Quotation]:
+    def get_all_quotations(db: Session, skip: int = 0, limit: int = 100) -> List[QuotationResponse]:
         return db.query(Quotation).options(
             joinedload(Quotation.customer),
             joinedload(Quotation.items).joinedload(QuotationItem.door_type),
             joinedload(Quotation.items).joinedload(QuotationItem.attributes).joinedload(QuotationItemAttribute.attribute)
-        ).offset(skip).limit(limit).order_by(Quotation.date.desc()).all()
+        ).offset(skip).limit(limit).all()
 
     @staticmethod
-    def get_quotations_by_status(db: Session, status: str) -> List[Quotation]:
+    def get_quotations_by_status(db: Session, status: str) -> List[QuotationResponse]:
         return db.query(Quotation).options(
             joinedload(Quotation.customer),
             joinedload(Quotation.items).joinedload(QuotationItem.door_type),
@@ -246,7 +246,7 @@ class CustomerQuotationCRUD:
         ).order_by(Quotation.date.desc()).all()
 
     @staticmethod
-    def update_quotation(db: Session, quotation_id: int, data: QuotationUpdate, updated_by: str = None) -> Optional[Quotation]:
+    def update_quotation(db: Session, quotation_id: int, data: QuotationUpdate, updated_by: str = None) -> Optional[QuotationResponse]:
         quotation = db.get(Quotation, quotation_id)
         if not quotation:
             return None
@@ -294,14 +294,14 @@ class CustomerQuotationCRUD:
         return quotation_item
 
     @staticmethod
-    def get_quotation_item_by_id(db: Session, item_id: int) -> Optional[QuotationItem]:
+    def get_quotation_item_by_id(db: Session, item_id: int) -> Optional[QuotationItemResponse]:
         return db.query(QuotationItem).options(
             joinedload(QuotationItem.door_type),
             joinedload(QuotationItem.attributes).joinedload(QuotationItemAttribute.attribute)
         ).filter(QuotationItem.id == item_id).first()
 
     @staticmethod
-    def get_quotation_items_by_quotation(db: Session, quotation_id: int) -> List[QuotationItem]:
+    def get_quotation_items_by_quotation(db: Session, quotation_id: int) -> List[QuotationItemResponse]:
         return db.query(QuotationItem).options(
             joinedload(QuotationItem.door_type),
             joinedload(QuotationItem.attributes).joinedload(QuotationItemAttribute.attribute)
@@ -311,7 +311,7 @@ class CustomerQuotationCRUD:
         ).all()
 
     @staticmethod
-    def update_quotation_item(db: Session, item_id: int, data: QuotationItemUpdate, updated_by: str = None) -> Optional[QuotationItem]:
+    def update_quotation_item(db: Session, item_id: int, data: QuotationItemUpdate, updated_by: str = None) -> Optional[QuotationItemResponse]:
         quotation_item = db.get(QuotationItem, item_id)
         if not quotation_item:
             return None
@@ -358,13 +358,13 @@ class CustomerQuotationCRUD:
         return quotation_item_attribute
 
     @staticmethod
-    def get_quotation_item_attribute_by_id(db: Session, attribute_id: int) -> Optional[QuotationItemAttribute]:
+    def get_quotation_item_attribute_by_id(db: Session, attribute_id: int) -> Optional[QuotationItemAttributeResponse]:
         return db.query(QuotationItemAttribute).options(
             joinedload(QuotationItemAttribute.attribute)
         ).filter(QuotationItemAttribute.id == attribute_id).first()
 
     @staticmethod
-    def get_quotation_item_attributes_by_item(db: Session, quotation_item_id: int) -> List[QuotationItemAttribute]:
+    def get_quotation_item_attributes_by_item(db: Session, quotation_item_id: int) -> List[QuotationItemAttributeResponse]:
         return db.query(QuotationItemAttribute).options(
             joinedload(QuotationItemAttribute.attribute)
         ).filter(
@@ -373,7 +373,7 @@ class CustomerQuotationCRUD:
         ).all()
 
     @staticmethod
-    def update_quotation_item_attribute(db: Session, attribute_id: int, data: QuotationItemAttributeUpdate, updated_by: str = None) -> Optional[QuotationItemAttribute]:
+    def update_quotation_item_attribute(db: Session, attribute_id: int, data: QuotationItemAttributeUpdate, updated_by: str = None) -> Optional[QuotationItemAttributeResponse]:
         quotation_item_attribute = db.get(QuotationItemAttribute, attribute_id)
         if not quotation_item_attribute:
             return None

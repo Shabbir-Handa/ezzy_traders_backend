@@ -208,7 +208,7 @@ def get_quotations(
     try:
         if customer_id:
             quotations = CustomerQuotationCRUD.get_quotations_by_customer(db, customer_id)
-        elif status:
+        elif status_quot:
             quotations = CustomerQuotationCRUD.get_quotations_by_status(db, status_quot)
         else:
             quotations = CustomerQuotationCRUD.get_all_quotations(db, skip=skip, limit=limit)

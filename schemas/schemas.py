@@ -153,7 +153,7 @@ class DoorTypeThicknessOptionBase(BaseModel):
 
 
 class DoorTypeThicknessOptionCreate(DoorTypeThicknessOptionBase):
-    pass
+    door_type_id: Optional[int] = None
 
 
 class DoorTypeThicknessOptionUpdate(DoorTypeThicknessOptionBase):
@@ -227,7 +227,7 @@ class AttributeOptionBase(BaseModel):
 
 
 class AttributeOptionCreate(AttributeOptionBase):
-    pass
+    attribute_id: Optional[int] = None
 
 
 class AttributeOptionUpdate(AttributeOptionBase):

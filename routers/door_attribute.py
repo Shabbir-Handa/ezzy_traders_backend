@@ -15,7 +15,8 @@ from schemas.schemas import (
     EntityAttributeCreate, EntityAttributeUpdate, EntityAttributeResponse,
     AttributeOptionCreate, AttributeOptionUpdate, AttributeOptionResponse,
     NestedAttributeCreate, NestedAttributeUpdate, NestedAttributeResponse,
-    UnitCreate, UnitUpdate, UnitResponse
+    UnitCreate, UnitUpdate, UnitResponse,
+    DoorTypeThicknessOptionCreate, DoorTypeThicknessOptionUpdate, DoorTypeThicknessOptionResponse
 )
 
 router = APIRouter(
@@ -357,14 +358,24 @@ def create_entity_attribute(
 
 @router.get("/entity-attributes", response_model=List[EntityAttributeResponse])
 def get_entity_attributes(
-        entity_type: str = Query(...),
-        entity_id: int = Query(...),
+        entity_type: Optional[str] = Query(None),
+        entity_id: Optional[int] = Query(None),
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
-    """Get all attributes for a specific entity"""
+    """Get entity attributes with optional filtering by entity type and entity id"""
     try:
-        entity_attributes = DoorAttributeCRUD.get_entity_attributes_by_entity(db, entity_type, entity_id)
+        if entity_type and entity_id:
+            # Get attributes for specific entity type and id
+            entity_attributes = DoorAttributeCRUD.get_entity_attributes_by_entity(db, entity_type, entity_id)
+        elif entity_type:
+            # Get all attributes for a specific entity type
+            entity_attributes = DoorAttributeCRUD.get_entity_attributes_by_entity_type(db, entity_type, skip=skip, limit=limit)
+        else:
+            # Get all entity attributes
+            entity_attributes = DoorAttributeCRUD.get_all_entity_attributes(db, skip=skip, limit=limit)
         return entity_attributes
     except SQLAlchemyError as e:
         raise HTTPException(
@@ -877,6 +888,151 @@ def delete_unit(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Unit not found"
+            )
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+# ============================================================================
+# DOOR TYPE THICKNESS OPTION ENDPOINTS
+# ============================================================================
+
+@router.post("/door-type-thickness-options", response_model=DoorTypeThicknessOptionResponse, status_code=status.HTTP_201_CREATED)
+def create_door_type_thickness_option(
+        thickness_option_data: DoorTypeThicknessOptionCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Create a new door type thickness option"""
+    try:
+        thickness_option = DoorAttributeCRUD.create_door_type_thickness_option(db, thickness_option_data, current_user.username)
+        return thickness_option
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.get("/door-type-thickness-options", response_model=List[DoorTypeThicknessOptionResponse])
+def get_door_type_thickness_options(
+        door_type_id: Optional[int] = Query(None),
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
+        active_only: bool = Query(False),
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Get door type thickness options with optional filtering"""
+    try:
+        if door_type_id:
+            thickness_options = DoorAttributeCRUD.get_door_type_thickness_options_by_door_type(db, door_type_id)
+        elif active_only:
+            thickness_options = DoorAttributeCRUD.get_active_door_type_thickness_options(db)
+        else:
+            thickness_options = DoorAttributeCRUD.get_all_door_type_thickness_options(db, skip=skip, limit=limit)
+        return thickness_options
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.get("/door-type-thickness-options/{thickness_option_id}", response_model=DoorTypeThicknessOptionResponse)
+def get_door_type_thickness_option(
+        thickness_option_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Get a specific door type thickness option by ID"""
+    try:
+        thickness_option = DoorAttributeCRUD.get_door_type_thickness_option_by_id(db, thickness_option_id)
+        if not thickness_option:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Door type thickness option not found"
+            )
+        return thickness_option
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.put("/door-type-thickness-options/{thickness_option_id}", response_model=DoorTypeThicknessOptionResponse)
+def update_door_type_thickness_option(
+        thickness_option_id: int,
+        thickness_option_data: DoorTypeThicknessOptionUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Update a door type thickness option"""
+    try:
+        thickness_option = DoorAttributeCRUD.update_door_type_thickness_option(db, thickness_option_id, thickness_option_data, current_user.username)
+        if not thickness_option:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Door type thickness option not found"
+            )
+        return thickness_option
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.delete("/door-type-thickness-options/{thickness_option_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_door_type_thickness_option(
+        thickness_option_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Delete a door type thickness option (soft delete)"""
+    try:
+        success = DoorAttributeCRUD.delete_door_type_thickness_option(db, thickness_option_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Door type thickness option not found"
             )
     except HTTPException:
         raise

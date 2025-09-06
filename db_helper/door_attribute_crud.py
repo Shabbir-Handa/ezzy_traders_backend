@@ -14,7 +14,8 @@ from schemas.schemas import (
     EntityAttributeCreate, EntityAttributeUpdate, EntityAttributeResponse,
     AttributeOptionCreate, AttributeOptionUpdate, AttributeOptionResponse,
     NestedAttributeCreate, NestedAttributeUpdate, NestedAttributeResponse,
-    UnitCreate, UnitUpdate, UnitResponse
+    UnitCreate, UnitUpdate, UnitResponse,
+    DoorTypeThicknessOptionCreate, DoorTypeThicknessOptionUpdate, DoorTypeThicknessOptionResponse
 )
 
 
@@ -203,6 +204,22 @@ class DoorAttributeCRUD:
             EntityAttribute.entity_type == entity_type,
             EntityAttribute.entity_id == entity_id
         ).order_by(EntityAttribute.order).all()
+
+    @staticmethod
+    def get_entity_attributes_by_entity_type(db: Session, entity_type: str, skip: int = 0, limit: int = 100) -> List[EntityAttributeResponse]:
+        """Get all entity attributes for a specific entity type"""
+        return db.query(EntityAttribute).options(
+            joinedload(EntityAttribute.attribute)
+        ).filter(
+            EntityAttribute.entity_type == entity_type
+        ).order_by(EntityAttribute.entity_id, EntityAttribute.order).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def get_all_entity_attributes(db: Session, skip: int = 0, limit: int = 100) -> List[EntityAttributeResponse]:
+        """Get all entity attributes with pagination"""
+        return db.query(EntityAttribute).options(
+            joinedload(EntityAttribute.attribute)
+        ).order_by(EntityAttribute.entity_type, EntityAttribute.entity_id, EntityAttribute.order).offset(skip).limit(limit).all()
 
     @staticmethod
     def get_entity_attribute_by_id(db: Session, entity_attribute_id: int) -> Optional[EntityAttributeResponse]:
@@ -740,3 +757,101 @@ class DoorAttributeCRUD:
         unit.is_active = False
         db.commit()
         return True
+
+    # ============================================================================
+    # DOOR TYPE THICKNESS OPTION METHODS
+    # ============================================================================
+
+    @staticmethod
+    def create_door_type_thickness_option(db: Session, data: DoorTypeThicknessOptionCreate, username: str = None) -> DoorTypeThicknessOptionResponse:
+        """Create a new door type thickness option"""
+        thickness_option = DoorTypeThicknessOption(
+            **data.dict(),
+            created_by=username,
+            updated_by=username
+        )
+        db.add(thickness_option)
+        db.commit()
+        db.refresh(thickness_option)
+        return thickness_option
+
+    @staticmethod
+    def get_door_type_thickness_option_by_id(db: Session, thickness_option_id: int) -> Optional[DoorTypeThicknessOptionResponse]:
+        """Get a door type thickness option by ID"""
+        return db.query(DoorTypeThicknessOption).filter(DoorTypeThicknessOption.id == thickness_option_id).first()
+
+    @staticmethod
+    def get_door_type_thickness_options_by_door_type(db: Session, door_type_id: int) -> List[DoorTypeThicknessOptionResponse]:
+        """Get all thickness options for a specific door type"""
+        return db.query(DoorTypeThicknessOption).filter(
+            DoorTypeThicknessOption.door_type_id == door_type_id,
+            DoorTypeThicknessOption.is_active == True
+        ).order_by(DoorTypeThicknessOption.thickness_value).all()
+
+    @staticmethod
+    def get_all_door_type_thickness_options(db: Session, skip: int = 0, limit: int = 100) -> List[DoorTypeThicknessOptionResponse]:
+        """Get all door type thickness options with pagination"""
+        return db.query(DoorTypeThicknessOption).options(
+            joinedload(DoorTypeThicknessOption.door_type)
+        ).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def get_active_door_type_thickness_options(db: Session) -> List[DoorTypeThicknessOptionResponse]:
+        """Get all active door type thickness options"""
+        return db.query(DoorTypeThicknessOption).options(
+            joinedload(DoorTypeThicknessOption.door_type)
+        ).filter(DoorTypeThicknessOption.is_active == True).all()
+
+    @staticmethod
+    def update_door_type_thickness_option(db: Session, thickness_option_id: int, data: DoorTypeThicknessOptionUpdate, username: str = None) -> Optional[DoorTypeThicknessOptionResponse]:
+        """Update a door type thickness option"""
+        thickness_option = db.get(DoorTypeThicknessOption, thickness_option_id)
+        if not thickness_option:
+            return None
+
+        update_data = data.dict(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(thickness_option, key, value)
+
+        thickness_option.updated_by = username
+        thickness_option.updated_at = datetime.now(timezone.utc)
+
+        db.commit()
+        db.refresh(thickness_option)
+        return thickness_option
+
+    @staticmethod
+    def delete_door_type_thickness_option(db: Session, thickness_option_id: int) -> bool:
+        """Delete a door type thickness option (soft delete)"""
+        thickness_option = db.get(DoorTypeThicknessOption, thickness_option_id)
+        if not thickness_option:
+            return False
+
+        # Soft delete - just mark as inactive
+        thickness_option.is_active = False
+        thickness_option.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        return True
+
+    @staticmethod
+    def get_door_type_by_name(db: Session, name: str) -> Optional[DoorTypeResponse]:
+        """Get a door type by name"""
+        return db.query(DoorType).filter(DoorType.name == name).first()
+
+    @staticmethod
+    def get_attribute_by_name(db: Session, name: str) -> Optional[AttributeResponse]:
+        """Get an attribute by name"""
+        return db.query(Attribute).filter(Attribute.name == name).first()
+
+    @staticmethod
+    def get_unit_by_name(db: Session, name: str) -> Optional[UnitResponse]:
+        """Get a unit by name"""
+        return db.query(Unit).filter(Unit.name == name).first()
+
+    @staticmethod
+    def get_attributes_by_domain(db: Session, domain: str) -> List[AttributeResponse]:
+        """Get attributes by domain (placeholder for future domain-based filtering)"""
+        return db.query(Attribute).options(
+            joinedload(Attribute.options).joinedload(AttributeOption.unit),
+            joinedload(Attribute.unit)
+        ).filter(Attribute.is_active == True).all()
