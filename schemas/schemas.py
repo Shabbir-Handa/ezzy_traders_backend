@@ -493,10 +493,6 @@ class UnitValueUpdate(UnitValueBase):
 class UnitValueResponse(UnitValueBase):
     id: int
     unit: Optional["UnitResponse"] = None
-    created_by: Optional[str] = None
-    updated_by: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

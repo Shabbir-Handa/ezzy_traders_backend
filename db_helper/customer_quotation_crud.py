@@ -173,9 +173,7 @@ class CustomerQuotationCRUD:
                             for unit_value in attr.unit_values:
                                 unit_value.quotation_item_attribute_id = quotation_item_attribute.id
                                 quotation_item_attribute_unit_value = UnitValue(
-                                    **unit_value.dict(),
-                                    created_by=username,
-                                    updated_by=username
+                                    **unit_value.dict()
                                 )
                                 db.add(quotation_item_attribute_unit_value)
                                 db.flush()
