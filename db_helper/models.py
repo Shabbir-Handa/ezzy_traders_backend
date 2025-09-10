@@ -168,7 +168,7 @@ class Attribute(Base):
     updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
     # Single options relationship for all types
-    options = relationship('AttributeOption', back_populates='attribute')
+    options = relationship('AttributeOption', back_populates='attribute', cascade="all, delete-orphan")
 
     # Many-to-many with DoorType via EntityAttribute
     door_types = relationship(
