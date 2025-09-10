@@ -182,17 +182,6 @@ class Attribute(Base):
     # Unit relationship
     unit = relationship('Unit', back_populates='attributes')
 
-    __table_args__ = (
-        # Ensure cost fields are properly used based on cost_type
-        CheckConstraint(
-            "(cost_type = 'constant' AND fixed_cost IS NOT NULL) OR "
-            "(cost_type = 'variable' AND cost_per_unit IS NOT NULL) OR "
-            "(cost_type = 'direct') OR "
-            "(cost_type = 'nested')",
-            name='check_cost_fields_usage'
-        ),
-    )
-
 
 class AttributeOption(Base):
     __tablename__ = 'attribute_option'
