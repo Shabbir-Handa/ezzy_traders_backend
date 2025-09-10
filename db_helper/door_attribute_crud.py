@@ -176,7 +176,8 @@ class DoorAttributeCRUD:
             return False
 
         # Soft delete - just mark as inactive
-        attribute.is_active = False
+        # attribute.is_active = False
+        db.delete(attribute)
         db.commit()
         return True
 
@@ -306,7 +307,8 @@ class DoorAttributeCRUD:
             return False
 
         # Soft delete - just mark as inactive
-        attribute_option.is_active = False
+        # attribute_option.is_active = False
+        db.delete(attribute_option)
         db.commit()
         return True
 
@@ -700,7 +702,8 @@ class DoorAttributeCRUD:
             return False
 
         # Soft delete - just mark as inactive
-        nested_attribute.is_active = False
+        # nested_attribute.is_active = False
+        db.delete(nested_attribute)
         db.commit()
         return True
 
@@ -754,7 +757,8 @@ class DoorAttributeCRUD:
             return False
 
         # Soft delete - just mark as inactive
-        unit.is_active = False
+        # unit.is_active = False
+        db.delete(unit)
         db.commit()
         return True
 
@@ -828,8 +832,9 @@ class DoorAttributeCRUD:
             return False
 
         # Soft delete - just mark as inactive
-        thickness_option.is_active = False
-        thickness_option.updated_at = datetime.now(timezone.utc)
+        # thickness_option.is_active = False
+        # thickness_option.updated_at = datetime.now(timezone.utc)
+        db.delete(thickness_option)
         db.commit()
         return True
 
