@@ -337,14 +337,19 @@ class DoorAttributeCRUD:
         return nested_attribute
 
     @staticmethod
-    def get_nested_attributes_by_attribute(db: Session, attribute_id: int) -> List[NestedAttributeResponse]:
+    def get_all_nested_attributes(db: Session) -> List[NestedAttributeResponse]:
         return db.query(NestedAttribute).options(
             joinedload(NestedAttribute.child_attribute).joinedload(Attribute.options),
             joinedload(NestedAttribute.child_attribute).joinedload(Attribute.unit)
-        ).filter(
-            NestedAttribute.parent_attribute_id == attribute_id,
-            NestedAttribute.is_active == True
         ).all()
+
+    @staticmethod
+    def get_nested_attribute_by_id(db: Session, nested_attribute_id: int) -> Optional[NestedAttributeResponse]:
+        return db.query(NestedAttribute).options(
+            joinedload(NestedAttribute.child_attribute).joinedload(Attribute.options),
+            joinedload(NestedAttribute.child_attribute).joinedload(Attribute.unit)
+        ).filter(NestedAttribute.id == nested_attribute_id).first()
+
 
     @staticmethod
     def get_child_attributes_for_parent(db: Session, parent_attribute_id: int) -> List[AttributeResponse]:
@@ -669,13 +674,6 @@ class DoorAttributeCRUD:
                 })
 
         return breakdown
-
-    @staticmethod
-    def get_nested_attribute_by_id(db: Session, nested_attribute_id: int) -> Optional[NestedAttributeResponse]:
-        return db.query(NestedAttribute).options(
-            joinedload(NestedAttribute.child_attribute).joinedload(Attribute.options),
-            joinedload(NestedAttribute.child_attribute).joinedload(Attribute.unit)
-        ).filter(NestedAttribute.id == nested_attribute_id).first()
 
     @staticmethod
     def update_nested_attribute(db: Session, nested_attribute_id: int, data: NestedAttributeUpdate,

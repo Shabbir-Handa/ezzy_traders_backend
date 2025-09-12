@@ -644,14 +644,13 @@ def create_nested_attribute(
 
 
 @router.get("/nested-attributes", response_model=List[NestedAttributeResponse])
-def get_nested_attributes(
-        attribute_id: int = Query(...),
+def get_all_nested_attributes(
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
     """Get all nested attributes for a specific attribute"""
     try:
-        nested_attributes = DoorAttributeCRUD.get_nested_attributes_by_attribute(db, attribute_id)
+        nested_attributes = DoorAttributeCRUD.get_all_nested_attributes(db)
         return nested_attributes
     except SQLAlchemyError as e:
         raise HTTPException(
