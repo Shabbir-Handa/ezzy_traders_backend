@@ -267,7 +267,8 @@ class CustomerQuotationCRUD:
             return False
         
         # Soft delete - just mark as inactive
-        quotation.is_active = False
+        # quotation.is_active = False
+        db.delete(quotation)
         db.commit()
         return True
 

@@ -322,7 +322,7 @@ class Quotation(Base):
     updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
     customer = relationship('Customer', back_populates='quotations')
-    items = relationship('QuotationItem', back_populates='quotation')
+    items = relationship('QuotationItem', back_populates='quotation', cascade="all, delete-orphan")
 
 
 class QuotationItem(Base):
@@ -352,7 +352,7 @@ class QuotationItem(Base):
     door_type = relationship('DoorType', back_populates='items')
     thickness_option = relationship('DoorTypeThicknessOption', backref='quotation_items')  # Relationship to thickness option
     # Association object for attribute selections on this item
-    attributes = relationship('QuotationItemAttribute', back_populates='quotation_item')
+    attributes = relationship('QuotationItemAttribute', back_populates='quotation_item', cascade="all, delete-orphan")
 
 
 class QuotationItemAttribute(Base):
@@ -375,7 +375,7 @@ class QuotationItemAttribute(Base):
 
     quotation_item = relationship('QuotationItem', back_populates='attributes')
     attribute = relationship('Attribute')
-    unit_values = relationship('UnitValue', back_populates='quotation_item_attribute')
+    unit_values = relationship('UnitValue', back_populates='quotation_item_attribute', cascade="all, delete-orphan")
 
 
 class UnitValue(Base):
