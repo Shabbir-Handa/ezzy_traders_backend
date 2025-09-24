@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import Session
 from db_helper.models import (
     Quotation, QuotationItem, QuotationItemAttribute, UnitValue,
-    DoorTypeThicknessOption, Attribute, AttributeOption, Unit
+    DoorTypeThicknessOption, Attribute, AttributeOption, Unit, CostType
 )
 from db_helper.door_attribute_crud import DoorAttributeCRUD
 
@@ -93,13 +93,13 @@ class CostCalculator:
             return cost_breakdown
         
         # Calculate based on cost type
-        if attribute.cost_type == 'constant':
+        if attribute.cost_type == CostType.CONSTANT:
             if selected_option:
                 calculated_cost = selected_option.cost
             else:
                 calculated_cost = attribute.fixed_cost or Decimal('0')
                 
-        elif attribute.cost_type == 'variable':
+        elif attribute.cost_type == CostType.VARIABLE:
             # Use option's cost_per_unit if provided, else attribute-level cost_per_unit
             option_cost_per_unit = None
             if selected_option and getattr(selected_option, 'cost_per_unit', None):
@@ -125,7 +125,7 @@ class CostCalculator:
                 'source': 'option' if option_cost_per_unit is not None else 'attribute'
             }
                 
-        elif attribute.cost_type == 'nested':
+        elif attribute.cost_type == CostType.NESTED:
             # Handle nested attributes recursively with child options
             nested_breakdown = DoorAttributeCRUD.get_nested_attribute_cost_breakdown(
                 db, attribute.id, 1.0, child_options
