@@ -88,7 +88,7 @@ class CostCalculator:
         }
         
         # Handle direct cost first (user override)
-        if direct_cost is not None:
+        if direct_cost is not None and int(direct_cost):
             cost_breakdown['total_cost'] = direct_cost
             return cost_breakdown
         
@@ -289,7 +289,7 @@ class CostCalculator:
             attr.calculated_cost = attr_cost_breakdown['calculated_cost']
             attr.total_attribute_cost = attr_cost_breakdown['total_cost']
             per_unit_attribute_total += attr_cost_breakdown['total_cost']
-            
+
             attribute_costs.append(attr_cost_breakdown)
         
         # Calculate per-unit with attributes and total for quantity
