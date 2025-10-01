@@ -4,6 +4,7 @@ Customer and Quotation Management CRUD Operations
 
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Dict, Any
+from decimal import Decimal
 from datetime import datetime, timezone
 from db_helper.models import Customer, Quotation, QuotationItem, QuotationItemAttribute, DoorType, Attribute, UnitValue, DoorTypeThicknessOption, AttributeOption
 from schemas.schemas import (
@@ -182,14 +183,28 @@ class CustomerQuotationCRUD:
                         item_attribute_costs.append(attr_cost_breakdown)
                         per_unit_attribute_total += attr_cost_breakdown['total_cost']
                 
-                # Compute per-unit with attributes and total for quantity
+                # Compute per-unit with attributes and then apply tax and discount
                 unit_price_with_attributes = base_cost_breakdown['base_cost_per_unit'] + per_unit_attribute_total
-                total_item_cost = unit_price_with_attributes * (item.quantity or 1)
+                tax_percentage = getattr(item, 'tax_percentage', 0) or 0
+                discount_amount = getattr(item, 'discount_amount', 0) or 0
+
+                # Apply tax on unit price with attributes
+                tax_multiplier = (1 + (Decimal(str(tax_percentage)) / Decimal('100')))
+                unit_price_after_tax = Decimal(str(unit_price_with_attributes)) * tax_multiplier
+
+                # Apply flat discount per unit after tax
+                unit_price_final = unit_price_after_tax - Decimal(str(discount_amount))
+                if unit_price_final < Decimal('0'):
+                    unit_price_final = Decimal('0')
+
+                total_item_cost = unit_price_final * (item.quantity or 1)
 
                 # Update item with calculated costs
                 quotation_item.base_cost_per_unit = base_cost_breakdown['base_cost_per_unit']
                 quotation_item.attribute_cost_per_unit = per_unit_attribute_total
-                quotation_item.unit_price_with_attributes = unit_price_with_attributes
+                quotation_item.tax_percentage = Decimal(str(tax_percentage))
+                quotation_item.discount_amount = Decimal(str(discount_amount))
+                quotation_item.unit_price_with_attributes = unit_price_final
                 quotation_item.total_item_cost = total_item_cost
                 total_quotation_cost += total_item_cost
         

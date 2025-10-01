@@ -403,6 +403,8 @@ class QuotationItemBase(BaseModel):
     quantity: int = 1
     length: Decimal = Field(..., description="Length with up to 2 decimal places")
     breadth: Decimal = Field(..., description="Breadth with up to 2 decimal places")
+    tax_percentage: Decimal = Field(default=Decimal('0'), description="Tax percentage applied to unit price with attributes")
+    discount_amount: Decimal = Field(default=Decimal('0'), description="Flat discount amount per unit after tax")
 
 
 class QuotationItemCreate(QuotationItemBase):
@@ -428,6 +430,8 @@ class QuotationItemResponse(QuotationItemBase):
     attribute_cost_per_unit: Optional[Decimal] = None
     unit_price_with_attributes: Optional[Decimal] = None
     total_item_cost: Optional[Decimal] = None
+    tax_percentage: Optional[Decimal] = None
+    discount_amount: Optional[Decimal] = None
     created_by: Optional[str] = None
     updated_by: Optional[str] = None
     created_at: Optional[datetime] = None

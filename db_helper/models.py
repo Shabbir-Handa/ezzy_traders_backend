@@ -342,6 +342,10 @@ class QuotationItem(Base):
     unit_price_with_attributes = Column(Numeric(10, 2), nullable=False, default=0)  # Per-door price including attributes
     total_item_cost = Column(Numeric(12, 2), nullable=False, default=0)  # unit_price_with_attributes * quantity
 
+    # Tax and discount
+    tax_percentage = Column(Numeric(5, 2), nullable=False, default=0)  # Tax percentage to apply on unit price with attributes
+    discount_amount = Column(Numeric(10, 2), nullable=False, default=0)  # Flat discount amount per unit applied after tax
+
     # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)

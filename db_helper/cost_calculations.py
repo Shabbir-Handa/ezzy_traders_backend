@@ -292,14 +292,26 @@ class CostCalculator:
 
             attribute_costs.append(attr_cost_breakdown)
         
-        # Calculate per-unit with attributes and total for quantity
+        # Calculate per-unit with attributes, then apply tax and discount
         unit_price_with_attributes = base_cost_breakdown['base_cost_per_unit'] + per_unit_attribute_total
-        total_item_cost = unit_price_with_attributes * (item.quantity or 1)
+        tax_percentage = item.tax_percentage or Decimal('0')
+        discount_amount = item.discount_amount or Decimal('0')
+
+        # Apply tax on unit price with attributes
+        tax_multiplier = (Decimal('1') + (tax_percentage / Decimal('100')))
+        unit_price_after_tax = unit_price_with_attributes * tax_multiplier
+
+        # Apply flat discount per unit after tax
+        unit_price_final = unit_price_after_tax - discount_amount
+        if unit_price_final < Decimal('0'):
+            unit_price_final = Decimal('0')
+
+        total_item_cost = unit_price_final * (item.quantity or 1)
         
         # Update item with calculated costs
         item.base_cost_per_unit = base_cost_breakdown['base_cost_per_unit']
         item.attribute_cost_per_unit = per_unit_attribute_total
-        item.unit_price_with_attributes = unit_price_with_attributes
+        item.unit_price_with_attributes = unit_price_final
         item.total_item_cost = total_item_cost
         
         return {
