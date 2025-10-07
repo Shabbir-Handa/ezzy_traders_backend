@@ -44,6 +44,10 @@ class CustomerQuotationCRUD:
         return db.query(Customer).offset(skip).limit(limit).all()
 
     @staticmethod
+    def count_customers(db: Session) -> int:
+        return db.query(Customer).count()
+
+    @staticmethod
     def get_active_customers(db: Session) -> List[CustomerResponse]:
         return db.query(Customer).filter(Customer.is_active == True).all()
 
@@ -184,29 +188,12 @@ class CustomerQuotationCRUD:
                         per_unit_attribute_total += attr_cost_breakdown['total_cost']
                 
                 # Compute per-unit with attributes and then apply tax and discount
-                unit_price_with_attributes = base_cost_breakdown['base_cost_per_unit'] + per_unit_attribute_total
-                tax_percentage = getattr(item, 'tax_percentage', 0) or 0
-                discount_amount = getattr(item, 'discount_amount', 0) or 0
-
-                # Apply tax on unit price with attributes
-                tax_multiplier = (1 + (Decimal(str(tax_percentage)) / Decimal('100')))
-                unit_price_after_tax = Decimal(str(unit_price_with_attributes)) * tax_multiplier
-
-                # Apply flat discount per unit after tax
-                unit_price_final = unit_price_after_tax - Decimal(str(discount_amount))
-                if unit_price_final < Decimal('0'):
-                    unit_price_final = Decimal('0')
-
-                total_item_cost = unit_price_final * (item.quantity or 1)
-
-                # Update item with calculated costs
-                quotation_item.base_cost_per_unit = base_cost_breakdown['base_cost_per_unit']
-                quotation_item.attribute_cost_per_unit = per_unit_attribute_total
-                quotation_item.tax_percentage = Decimal(str(tax_percentage))
-                quotation_item.discount_amount = Decimal(str(discount_amount))
-                quotation_item.unit_price_with_attributes = unit_price_final
-                quotation_item.total_item_cost = total_item_cost
-                total_quotation_cost += total_item_cost
+                # Fix: Use CostCalculator for consistent logic (consolidate duplicate)
+                # This ensures tax/discount order and all protections are consistent
+                cost_breakdown = CostCalculator.calculate_quotation_item_costs(db, quotation_item, username)
+                
+                if 'error' not in cost_breakdown:
+                    total_quotation_cost += cost_breakdown['total_item_cost']
         
         # Update quotation total
         quotation.total_amount = total_quotation_cost
@@ -247,6 +234,10 @@ class CustomerQuotationCRUD:
             joinedload(Quotation.items).joinedload(QuotationItem.door_type),
             joinedload(Quotation.items).joinedload(QuotationItem.attributes).joinedload(QuotationItemAttribute.attribute)
         ).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def count_quotations(db: Session) -> int:
+        return db.query(Quotation).count()
 
     @staticmethod
     def get_quotations_by_status(db: Session, status: str) -> List[QuotationResponse]:

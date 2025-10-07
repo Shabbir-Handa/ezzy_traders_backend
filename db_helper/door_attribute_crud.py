@@ -61,6 +61,10 @@ class DoorAttributeCRUD:
         ).offset(skip).limit(limit).all()
 
     @staticmethod
+    def count_door_types(db: Session) -> int:
+        return db.query(DoorType).count()
+
+    @staticmethod
     def get_active_door_types(db: Session) -> List[DoorTypeResponse]:
         return db.query(DoorType).options(
             joinedload(DoorType.attributes).joinedload(EntityAttribute.attribute),
@@ -139,11 +143,23 @@ class DoorAttributeCRUD:
         ).filter(Attribute.id == attribute_id).first()
 
     @staticmethod
-    def get_all_attributes(db: Session, skip: int = 0, limit: int = 100) -> List[AttributeResponse]:
-        return db.query(Attribute).options(
+    def get_all_attributes(db: Session, skip: int = 0, limit: int = 100, exclude_nested: bool = False) -> List[AttributeResponse]:
+        query = db.query(Attribute).options(
             joinedload(Attribute.options).joinedload(AttributeOption.unit),
             joinedload(Attribute.unit)
-        ).offset(skip).limit(limit).all()
+        )
+        if exclude_nested:
+            from db_helper.models import CostType
+            query = query.filter(Attribute.cost_type != CostType.NESTED)
+        return query.offset(skip).limit(limit).all()
+
+    @staticmethod
+    def count_attributes(db: Session, exclude_nested: bool = False) -> int:
+        query = db.query(Attribute)
+        if exclude_nested:
+            from db_helper.models import CostType
+            query = query.filter(Attribute.cost_type != CostType.NESTED)
+        return query.count()
 
     @staticmethod
     def get_active_attributes(db: Session) -> List[AttributeResponse]:
@@ -339,6 +355,7 @@ class DoorAttributeCRUD:
     @staticmethod
     def get_all_nested_attributes(db: Session) -> List[NestedAttributeResponse]:
         return db.query(NestedAttribute).options(
+            joinedload(NestedAttribute.parent_attribute),
             joinedload(NestedAttribute.child_attribute).joinedload(Attribute.options),
             joinedload(NestedAttribute.child_attribute).joinedload(Attribute.unit)
         ).all()
@@ -727,6 +744,10 @@ class DoorAttributeCRUD:
     @staticmethod
     def get_all_units(db: Session, skip: int = 0, limit: int = 100) -> List[UnitResponse]:
         return db.query(Unit).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def count_units(db: Session) -> int:
+        return db.query(Unit).count()
 
     @staticmethod
     def get_active_units(db: Session) -> List[UnitResponse]:

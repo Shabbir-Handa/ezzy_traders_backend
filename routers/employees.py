@@ -48,7 +48,7 @@ def create_employee(
         )
 
 
-@router.get("/", response_model=List[EmployeeResponse])
+@router.get("/")
 def get_employees(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
@@ -60,9 +60,18 @@ def get_employees(
     try:
         if active_only:
             employees = EmployeeCRUD.get_active_employees(db)
+            total = EmployeeCRUD.get_employee_count(db, active_only=True)
         else:
             employees = EmployeeCRUD.get_all_employees(db, skip=skip, limit=limit)
-        return employees
+            total = EmployeeCRUD.get_employee_count(db, active_only=False)
+        
+        return {
+            "data": employees,
+            "total": total,
+            "page": (skip // limit) + 1 if limit > 0 else 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit if limit > 0 else 1
+        }
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

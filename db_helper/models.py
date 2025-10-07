@@ -333,18 +333,19 @@ class QuotationItem(Base):
     door_type_id = Column(Integer, ForeignKey('door_type.id'), nullable=False)
     thickness_option_id = Column(Integer, ForeignKey('door_type_thickness_option.id'), nullable=False)  # For cost calculation
     
-    length = Column(Numeric(8, 2), nullable=False)  # Length in mm
-    breadth = Column(Numeric(8, 2), nullable=False)  # Breadth in mm
+    length = Column(Numeric(8, 2), nullable=False)  # Length in inches
+    breadth = Column(Numeric(8, 2), nullable=False)  # Breadth in inches
     quantity = Column(Integer, nullable=False, default=1)
     # Cost breakdown fields
     base_cost_per_unit = Column(Numeric(10, 2), nullable=False, default=0)  # Base door cost per unit (without attributes)
     attribute_cost_per_unit = Column(Numeric(10, 2), nullable=False, default=0)  # Sum of attributes cost per unit
-    unit_price_with_attributes = Column(Numeric(10, 2), nullable=False, default=0)  # Per-door price including attributes
+    unit_price_before_tax = Column(Numeric(10, 2), nullable=False, default=0)  # Per-unit price after discount, before tax
+    unit_price_with_attributes = Column(Numeric(10, 2), nullable=False, default=0)  # FINAL per-unit price (after tax & discount)
     total_item_cost = Column(Numeric(12, 2), nullable=False, default=0)  # unit_price_with_attributes * quantity
 
-    # Tax and discount
-    tax_percentage = Column(Numeric(5, 2), nullable=False, default=0)  # Tax percentage to apply on unit price with attributes
-    discount_amount = Column(Numeric(10, 2), nullable=False, default=0)  # Flat discount amount per unit applied after tax
+    # Tax and discount (applied in order: discount first, then tax)
+    tax_percentage = Column(Numeric(5, 2), nullable=False, default=0)  # Tax percentage applied AFTER discount
+    discount_amount = Column(Numeric(10, 2), nullable=False, default=0)  # Flat discount per unit applied BEFORE tax
 
     # Audit fields
     created_by = Column(String, nullable=True)

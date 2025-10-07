@@ -50,7 +50,7 @@ def create_customer(
         )
 
 
-@router.get("/customers", response_model=List[CustomerResponse])
+@router.get("/customers")
 def get_customers(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
@@ -63,11 +63,21 @@ def get_customers(
     try:
         if search:
             customers = CustomerQuotationCRUD.search_customers(db, search)
+            total = len(customers)
         elif active_only:
             customers = CustomerQuotationCRUD.get_active_customers(db)
+            total = len(customers)
         else:
             customers = CustomerQuotationCRUD.get_all_customers(db, skip=skip, limit=limit)
-        return customers
+            total = CustomerQuotationCRUD.count_customers(db)
+        
+        return {
+            "data": customers,
+            "total": total,
+            "page": (skip // limit) + 1 if limit > 0 else 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit if limit > 0 else 1
+        }
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -195,7 +205,7 @@ def create_quotation(
         )
 
 
-@router.get("/quotations", response_model=List[QuotationResponse])
+@router.get("/quotations")
 def get_quotations(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
@@ -208,11 +218,21 @@ def get_quotations(
     try:
         if customer_id:
             quotations = CustomerQuotationCRUD.get_quotations_by_customer(db, customer_id)
+            total = len(quotations)
         elif status_quot:
             quotations = CustomerQuotationCRUD.get_quotations_by_status(db, status_quot)
+            total = len(quotations)
         else:
             quotations = CustomerQuotationCRUD.get_all_quotations(db, skip=skip, limit=limit)
-        return quotations
+            total = CustomerQuotationCRUD.count_quotations(db)
+        
+        return {
+            "data": quotations,
+            "total": total,
+            "page": (skip // limit) + 1 if limit > 0 else 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit if limit > 0 else 1
+        }
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

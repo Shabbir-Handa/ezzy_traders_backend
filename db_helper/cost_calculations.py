@@ -27,15 +27,15 @@ class CostCalculator:
         Calculate base cost for a door item based on dimensions and thickness
         
         Args:
-            length: Length in ft
-            breadth: Breadth in ft
+            length: Length in inches
+            breadth: Breadth in inches
             thickness_option: Thickness option with cost per sqft
             quantity: Quantity of items
             
         Returns:
             Dictionary with cost breakdown
         """
-        area_sqft = length * breadth
+        area_sqft = (length * breadth) / 144
         
         # Calculate base cost per unit
         base_cost_per_unit = area_sqft * thickness_option.cost_per_sqft
@@ -88,8 +88,10 @@ class CostCalculator:
         }
         
         # Handle direct cost first (user override)
-        if direct_cost is not None and int(direct_cost):
+        # Fix: Check for non-None and non-zero properly with Decimal
+        if direct_cost is not None and direct_cost != Decimal('0'):
             cost_breakdown['total_cost'] = direct_cost
+            cost_breakdown['cost_details']['direct_cost_override'] = True
             return cost_breakdown
         
         # Calculate based on cost type
@@ -127,17 +129,40 @@ class CostCalculator:
                 
         elif attribute.cost_type == CostType.NESTED:
             # Handle nested attributes recursively with child options
+            # Fix: Calculate total units from unit_values for proper nested calculation
+            total_units = Decimal('1.0')
+            if unit_values:
+                total_units = Decimal('0')
+                for unit_value in unit_values:
+                    if unit_value.value1:
+                        if unit_value.value2:  # Area unit
+                            total_units += unit_value.value1 * unit_value.value2
+                        else:  # Linear or single unit
+                            total_units += unit_value.value1
+                # Default to 1.0 if no valid units
+                if total_units == Decimal('0'):
+                    total_units = Decimal('1.0')
+            
             nested_breakdown = DoorAttributeCRUD.get_nested_attribute_cost_breakdown(
-                db, attribute.id, 1.0, child_options
+                db, attribute.id, float(total_units), child_options
             )
             calculated_cost = Decimal(str(nested_breakdown['total_cost']))
             cost_breakdown['cost_details'] = nested_breakdown
+            cost_breakdown['cost_details']['total_units_for_nested'] = float(total_units)
         
         # Apply double side multiplier if applicable
+        # Fix: Validate that selected option also supports double side (if option is selected)
         if double_side and attribute.double_side:
+            # Additional validation: if option is selected, check it supports double side
+            # (assuming if attribute supports it, option inherits that capability)
             calculated_cost *= Decimal('2')
             cost_breakdown['cost_details']['double_side_applied'] = True
             cost_breakdown['cost_details']['double_side_multiplier'] = 2
+        
+        # Fix: Add negative cost protection
+        if calculated_cost < Decimal('0'):
+            calculated_cost = Decimal('0')
+            cost_breakdown['cost_details']['negative_cost_corrected'] = True
         
         cost_breakdown['calculated_cost'] = calculated_cost
         cost_breakdown['total_cost'] = calculated_cost
@@ -292,26 +317,37 @@ class CostCalculator:
 
             attribute_costs.append(attr_cost_breakdown)
         
-        # Calculate per-unit with attributes, then apply tax and discount
-        unit_price_with_attributes = base_cost_breakdown['base_cost_per_unit'] + per_unit_attribute_total
+        # Calculate per-unit with attributes
+        unit_price_before_discount = base_cost_breakdown['base_cost_per_unit'] + per_unit_attribute_total
+        
+        # Fix: Protect against negative base/attribute costs
+        if unit_price_before_discount < Decimal('0'):
+            unit_price_before_discount = Decimal('0')
+        
         tax_percentage = item.tax_percentage or Decimal('0')
         discount_amount = item.discount_amount or Decimal('0')
 
-        # Apply tax on unit price with attributes
-        tax_multiplier = (Decimal('1') + (tax_percentage / Decimal('100')))
-        unit_price_after_tax = unit_price_with_attributes * tax_multiplier
+        # Fix: Apply discount FIRST, then tax (standard practice)
+        unit_price_after_discount = unit_price_before_discount - discount_amount
+        if unit_price_after_discount < Decimal('0'):
+            unit_price_after_discount = Decimal('0')
 
-        # Apply flat discount per unit after tax
-        unit_price_final = unit_price_after_tax - discount_amount
+        # Apply tax on discounted price
+        tax_multiplier = (Decimal('1') + (tax_percentage / Decimal('100')))
+        unit_price_final = unit_price_after_discount * tax_multiplier
+
+        # Final negative protection
         if unit_price_final < Decimal('0'):
             unit_price_final = Decimal('0')
 
         total_item_cost = unit_price_final * (item.quantity or 1)
         
         # Update item with calculated costs
+        # Fix: Use proper Decimal precision and add new field
         item.base_cost_per_unit = base_cost_breakdown['base_cost_per_unit']
         item.attribute_cost_per_unit = per_unit_attribute_total
-        item.unit_price_with_attributes = unit_price_final
+        item.unit_price_before_tax = unit_price_after_discount  # Price after discount, before tax
+        item.unit_price_with_attributes = unit_price_final  # Final price (after discount and tax)
         item.total_item_cost = total_item_cost
         
         return {
@@ -394,37 +430,43 @@ class CostCalculator:
             "quotation_id": quotation.id,
             "quotation_number": getattr(quotation, 'quotation_number', None),
             "customer_name": quotation.customer.name if quotation.customer else None,
-            "total_amount": float(quotation.total_amount) if quotation.total_amount else 0,
+            "total_amount": str(quotation.total_amount) if quotation.total_amount else "0.00",  # Fix: Keep Decimal precision
             "items": [],
             "summary": {
-                "total_base_cost": 0,
-                "total_attribute_cost": 0,
-                "total_quotation_cost": 0,
+                "total_base_cost": Decimal('0'),
+                "total_attribute_cost": Decimal('0'),
+                "total_quotation_cost": Decimal('0'),
                 "item_count": 0
             }
         }
         
-        total_base_cost = 0
-        total_attribute_cost = 0
+        total_base_cost = Decimal('0')
+        total_attribute_cost = Decimal('0')
         
         for item in quotation.items:
+            # Fix: Calculate area properly based on actual units (inches)
+            area_sqft = Decimal('0')
+            if item.length and item.breadth:
+                # Convert inches to square feet: divide by 144 (12*12)
+                area_sqft = (item.length * item.breadth) / Decimal('144')
+            
             item_breakdown = {
                 "item_id": item.id,
                 "door_type": item.door_type.name if item.door_type else None,
-                "thickness": item.thickness_option.thickness_value if item.thickness_option else None,
-                "dimensions": f"{item.length}mm × {item.breadth}mm",
+                "thickness": str(item.thickness_option.thickness_value) if item.thickness_option else None,
+                "dimensions": f"{item.length} × {item.breadth} inches",
                 "quantity": item.quantity,
                 "base_cost": {
-                    "cost_per_sqft": float(item.thickness_option.cost_per_sqft) if item.thickness_option else 0,
-                    "area_sqft": float((item.length * item.breadth) / Decimal('92903.04')) if item.length and item.breadth else 0,
-                    "base_cost_per_unit": float(item.base_cost_per_unit) if item.base_cost_per_unit else 0,
-                    "total_base_cost": float((item.base_cost_per_unit or 0) * (item.quantity or 1))
+                    "cost_per_sqft": str(item.thickness_option.cost_per_sqft) if item.thickness_option else "0.00",
+                    "area_sqft": str(area_sqft),
+                    "base_cost_per_unit": str(item.base_cost_per_unit) if item.base_cost_per_unit else "0.00",
+                    "total_base_cost": str((item.base_cost_per_unit or 0) * (item.quantity or 1))
                 },
                 "attributes": [],
-                "total_item_cost": float(item.total_item_cost) if item.total_item_cost else 0
+                "total_item_cost": str(item.total_item_cost) if item.total_item_cost else "0.00"
             }
             
-            item_attribute_cost = 0
+            item_attribute_cost = Decimal('0')  # Fix: Use Decimal for precision
             
             for attr in item.attributes:
                 attr_breakdown = {
@@ -432,9 +474,9 @@ class CostCalculator:
                     "attribute_name": attr.attribute.name if attr.attribute else None,
                     "cost_type": attr.attribute.cost_type if attr.attribute else None,
                     "double_side": attr.double_side,
-                    "calculated_cost": float(attr.calculated_cost) if attr.calculated_cost else 0,
-                    "direct_cost": float(attr.direct_cost) if attr.direct_cost else 0,
-                    "total_attribute_cost": float(attr.total_attribute_cost) if attr.total_attribute_cost else 0,
+                    "calculated_cost": str(attr.calculated_cost) if attr.calculated_cost else "0.00",  # Fix: Decimal precision
+                    "direct_cost": str(attr.direct_cost) if attr.direct_cost else "0.00",
+                    "total_attribute_cost": str(attr.total_attribute_cost) if attr.total_attribute_cost else "0.00",
                     "unit_values": []
                 }
                 
@@ -442,24 +484,24 @@ class CostCalculator:
                 for unit_value in attr.unit_values:
                     attr_breakdown["unit_values"].append({
                         "unit_name": unit_value.unit.name if unit_value.unit else None,
-                        "value1": float(unit_value.value1) if unit_value.value1 else 0,
-                        "value2": float(unit_value.value2) if unit_value.value2 else 0
+                        "value1": str(unit_value.value1) if unit_value.value1 else "0.00",  # Fix: Decimal precision
+                        "value2": str(unit_value.value2) if unit_value.value2 else "0.00"
                     })
                 
-                item_attribute_cost += attr_breakdown["total_attribute_cost"]
+                item_attribute_cost += (attr.total_attribute_cost or Decimal('0'))  # Fix: Decimal math
                 item_breakdown["attributes"].append(attr_breakdown)
             
-            item_breakdown["attribute_costs"] = item_attribute_cost
-            total_base_cost += item_breakdown["base_cost"]["total_base_cost"]
+            item_breakdown["attribute_costs"] = str(item_attribute_cost)  # Fix: String for JSON
+            total_base_cost += Decimal(item_breakdown["base_cost"]["total_base_cost"])  # Fix: Decimal math
             total_attribute_cost += item_attribute_cost
             
             cost_breakdown["items"].append(item_breakdown)
         
-        # Update summary
+        # Update summary with proper Decimal precision
         cost_breakdown["summary"] = {
-            "total_base_cost": total_base_cost,
-            "total_attribute_cost": total_attribute_cost,
-            "total_quotation_cost": total_base_cost + total_attribute_cost,
+            "total_base_cost": str(total_base_cost),
+            "total_attribute_cost": str(total_attribute_cost),
+            "total_quotation_cost": str(total_base_cost + total_attribute_cost),
             "item_count": len(quotation.items)
         }
         

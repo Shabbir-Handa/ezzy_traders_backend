@@ -214,6 +214,22 @@ class AttributeResponse(AttributeBase):
         from_attributes = True
 
 
+class AttributeListResponse(BaseModel):
+    """Lightweight response for attribute list views - excludes options and audit fields"""
+    id: int
+    name: str
+    description: Optional[str] = None
+    double_side: bool
+    cost_type: CostType
+    fixed_cost: Optional[Decimal] = None
+    cost_per_unit: Optional[Decimal] = None
+    unit_id: Optional[int] = None
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
 # Attribute Option Schemas
 class AttributeOptionBase(BaseModel):
     attribute_id: int
@@ -428,7 +444,8 @@ class QuotationItemResponse(QuotationItemBase):
     attributes: List["QuotationItemAttributeResponse"] = []
     base_cost_per_unit: Optional[Decimal] = None
     attribute_cost_per_unit: Optional[Decimal] = None
-    unit_price_with_attributes: Optional[Decimal] = None
+    unit_price_before_tax: Optional[Decimal] = None  # Price after discount, before tax
+    unit_price_with_attributes: Optional[Decimal] = None  # Final price (after discount and tax)
     total_item_cost: Optional[Decimal] = None
     tax_percentage: Optional[Decimal] = None
     discount_amount: Optional[Decimal] = None
@@ -520,6 +537,20 @@ class PaginatedResponse(BaseModel):
     page: int
     size: int
     pages: int
+
+
+class NestedAttributeListResponse(BaseModel):
+    """Lightweight response for nested attribute list views"""
+    id: int
+    parent_attribute_id: int
+    child_attribute_id: int
+    relationship_order: int
+    is_active: bool
+    parent_attribute: AttributeListResponse
+    child_attribute: AttributeListResponse
+
+    class Config:
+        from_attributes = True
 
 # ============================================================================
 # FORWARD REFERENCE RESOLUTION

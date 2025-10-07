@@ -2,8 +2,9 @@
 Door and Attribute Management Router
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -61,7 +62,7 @@ def create_door_type(
         )
 
 
-@router.get("/door-types", response_model=List[DoorTypeResponse])
+@router.get("/door-types")
 def get_door_types(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
@@ -73,9 +74,21 @@ def get_door_types(
     try:
         if active_only:
             door_types = DoorAttributeCRUD.get_active_door_types(db)
+            total = len(door_types)
         else:
             door_types = DoorAttributeCRUD.get_all_door_types(db, skip=skip, limit=limit)
-        return door_types
+            total = DoorAttributeCRUD.count_door_types(db)
+
+        # Serialize to plain dicts via Pydantic to avoid raw SA models in paginated wrapper
+        data = [DoorTypeResponse.model_validate(dt, from_attributes=True).model_dump() for dt in door_types]
+        payload = {
+            "data": data,
+            "total": total,
+            "page": (skip // limit) + 1 if limit > 0 else 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit if limit > 0 else 1
+        }
+        return JSONResponse(content=payload)
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -211,12 +224,13 @@ def create_attribute(
         )
 
 
-@router.get("/attributes", response_model=List[AttributeResponse])
+@router.get("/attributes", response_model=Dict[str, Any])
 def get_attributes(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
         domain: Optional[str] = Query(None),
         active_only: bool = Query(False),
+        exclude_nested: bool = Query(True, description="Exclude nested-type attributes from list"),
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
@@ -224,11 +238,22 @@ def get_attributes(
     try:
         if domain:
             attributes = DoorAttributeCRUD.get_attributes_by_domain(db, domain)
+            total = len(attributes)
         elif active_only:
             attributes = DoorAttributeCRUD.get_active_attributes(db)
+            total = len(attributes)
         else:
-            attributes = DoorAttributeCRUD.get_all_attributes(db, skip=skip, limit=limit)
-        return attributes
+            attributes = DoorAttributeCRUD.get_all_attributes(db, skip=skip, limit=limit, exclude_nested=exclude_nested)
+            total = DoorAttributeCRUD.count_attributes(db, exclude_nested=exclude_nested)
+
+        data = [AttributeResponse.model_validate(a, from_attributes=True).model_dump() for a in attributes]
+        return {
+            "data": data,
+            "total": total,
+            "page": (skip // limit) + 1 if limit > 0 else 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit if limit > 0 else 1
+        }
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -643,15 +668,24 @@ def create_nested_attribute(
         )
 
 
-@router.get("/nested-attributes", response_model=List[NestedAttributeResponse])
+@router.get("/nested-attributes")
 def get_all_nested_attributes(
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
-    """Get all nested attributes for a specific attribute"""
+    """Get all nested attributes"""
     try:
         nested_attributes = DoorAttributeCRUD.get_all_nested_attributes(db)
-        return nested_attributes
+        total = len(nested_attributes)
+
+        data = [NestedAttributeResponse.model_validate(na, from_attributes=True).model_dump() for na in nested_attributes]
+        return {
+            "data": data,
+            "total": total,
+            "page": 1,
+            "size": total,
+            "pages": 1
+        }
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -788,7 +822,7 @@ def create_unit(
         )
 
 
-@router.get("/units", response_model=List[UnitResponse])
+@router.get("/units")
 def get_units(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
@@ -800,9 +834,19 @@ def get_units(
     try:
         if active_only:
             units = DoorAttributeCRUD.get_active_units(db)
+            total = len(units)
         else:
             units = DoorAttributeCRUD.get_all_units(db, skip=skip, limit=limit)
-        return units
+            total = DoorAttributeCRUD.count_units(db)
+
+        data = [UnitResponse.model_validate(u, from_attributes=True).model_dump() for u in units]
+        return {
+            "data": data,
+            "total": total,
+            "page": (skip // limit) + 1 if limit > 0 else 1,
+            "size": limit,
+            "pages": (total + limit - 1) // limit if limit > 0 else 1
+        }
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
