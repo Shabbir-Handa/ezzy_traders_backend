@@ -4,7 +4,6 @@ Door and Attribute Management Router
 
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -88,7 +87,7 @@ def get_door_types(
             "size": limit,
             "pages": (total + limit - 1) // limit if limit > 0 else 1
         }
-        return JSONResponse(content=payload)
+        return payload
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
