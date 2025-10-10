@@ -674,17 +674,8 @@ def get_all_nested_attributes(
 ):
     """Get all nested attributes"""
     try:
-        nested_attributes = DoorAttributeCRUD.get_all_nested_attributes(db)
-        total = len(nested_attributes)
-
-        data = [NestedAttributeResponse.model_validate(na, from_attributes=True).model_dump() for na in nested_attributes]
-        return {
-            "data": data,
-            "total": total,
-            "page": 1,
-            "size": total,
-            "pages": 1
-        }
+        grouped = DoorAttributeCRUD.get_grouped_nested_attributes(db)
+        return {"data": grouped, "total": len(grouped), "page": 1, "size": len(grouped), "pages": 1}
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

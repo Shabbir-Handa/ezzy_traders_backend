@@ -361,6 +361,62 @@ class DoorAttributeCRUD:
         ).all()
 
     @staticmethod
+    def get_grouped_nested_attributes(db: Session) -> List[Dict[str, Any]]:
+        """Return nested attributes grouped by parent_attribute with all of its children."""
+        nested_attrs = db.query(NestedAttribute).options(
+            joinedload(NestedAttribute.parent_attribute),
+            joinedload(NestedAttribute.child_attribute).joinedload(Attribute.options),
+            joinedload(NestedAttribute.child_attribute).joinedload(Attribute.unit)
+        ).order_by(NestedAttribute.parent_attribute_id, NestedAttribute.relationship_order).all()
+
+        grouped: Dict[int, Dict[str, Any]] = {}
+        for na in nested_attrs:
+            parent = na.parent_attribute
+            child = na.child_attribute
+            if parent.id not in grouped:
+                grouped[parent.id] = {
+                    'parent_attribute': {
+                        'id': parent.id,
+                        'name': parent.name,
+                        'description': parent.description,
+                        'cost_type': parent.cost_type,
+                    },
+                    'children': []
+                }
+            grouped[parent.id]['children'].append({
+                'id': child.id,
+                'name': child.name,
+                'description': child.description,
+                'cost_type': child.cost_type,
+                'options': [
+                    {
+                        'id': opt.id,
+                        'name': opt.name,
+                        'description': opt.description,
+                        'cost': float(opt.cost) if opt.cost is not None else 0,
+                        'cost_per_unit': float(opt.cost_per_unit) if opt.cost_per_unit is not None else None,
+                        'unit': (
+                            {
+                                'id': opt.unit.id,
+                                'name': opt.unit.name,
+                                'abbreviation': opt.unit.abbreviation
+                            } if opt.unit else None
+                        )
+                    }
+                    for opt in (child.options or [])
+                ],
+                'unit': (
+                    {
+                        'id': child.unit.id,
+                        'name': child.unit.name,
+                        'abbreviation': child.unit.abbreviation
+                    } if child.unit else None
+                )
+            })
+
+        return list(grouped.values())
+
+    @staticmethod
     def get_nested_attribute_by_id(db: Session, nested_attribute_id: int) -> Optional[NestedAttributeResponse]:
         return db.query(NestedAttribute).options(
             joinedload(NestedAttribute.child_attribute).joinedload(Attribute.options),
