@@ -6,7 +6,6 @@ Complete schema definitions for all entities
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, Field
-from decimal import Decimal
 from enum import Enum
 
 
@@ -143,12 +142,17 @@ class DoorTypeResponse(DoorTypeBase):
     class Config:
         from_attributes = True
 
+class DoorTypeShortResponse(DoorTypeBase):
+    id: int
+
+    class Config:
+        from_attributes = True
 
 # Door Type Thickness Option Schemas
 class DoorTypeThicknessOptionBase(BaseModel):
     door_type_id: int
-    thickness_value: Decimal = Field(..., description="Thickness with up to 2 decimal places")
-    cost_per_sqft: Decimal = Field(..., description="Price adjustment with up to 2 decimal places")
+    thickness_value: float = Field(..., description="Thickness with up to 2 decimal places")
+    cost_per_sqft: float = Field(..., description="Price adjustment with up to 2 decimal places")
     is_active: bool = True
 
 
@@ -158,8 +162,8 @@ class DoorTypeThicknessOptionCreate(DoorTypeThicknessOptionBase):
 
 class DoorTypeThicknessOptionUpdate(DoorTypeThicknessOptionBase):
     door_type_id: Optional[int] = None
-    thickness_value: Optional[Decimal] = None
-    cost_per_sqft: Optional[Decimal] = None
+    thickness_value: Optional[float] = None
+    cost_per_sqft: Optional[float] = None
     is_active: Optional[bool] = None
 
 
@@ -180,8 +184,8 @@ class AttributeBase(BaseModel):
     description: Optional[str] = None
     double_side: bool = False
     cost_type: CostType = Field(..., description="Type of cost calculation")
-    fixed_cost: Optional[Decimal] = Field(None, description="Fixed cost with up to 2 decimal places")
-    cost_per_unit: Optional[Decimal] = Field(None, description="Cost per unit with up to 2 decimal places")
+    fixed_cost: Optional[float] = Field(None, description="Fixed cost with up to 2 decimal places")
+    cost_per_unit: Optional[float] = Field(None, description="Cost per unit with up to 2 decimal places")
     unit_id: Optional[int] = None
     is_active: bool = True
 
@@ -195,8 +199,8 @@ class AttributeUpdate(AttributeBase):
     description: Optional[str] = None
     double_side: Optional[bool] = None
     cost_type: Optional[CostType] = None
-    fixed_cost: Optional[Decimal] = None
-    cost_per_unit: Optional[Decimal] = None
+    fixed_cost: Optional[float] = None
+    cost_per_unit: Optional[float] = None
     unit_id: Optional[int] = None
     is_active: Optional[bool] = None
 
@@ -214,6 +218,13 @@ class AttributeResponse(AttributeBase):
         from_attributes = True
 
 
+class AttributeShortResponse(AttributeBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
 class AttributeListResponse(BaseModel):
     """Lightweight response for attribute list views - excludes options and audit fields"""
     id: int
@@ -221,8 +232,8 @@ class AttributeListResponse(BaseModel):
     description: Optional[str] = None
     double_side: bool
     cost_type: CostType
-    fixed_cost: Optional[Decimal] = None
-    cost_per_unit: Optional[Decimal] = None
+    fixed_cost: Optional[float] = None
+    cost_per_unit: Optional[float] = None
     unit_id: Optional[int] = None
     is_active: bool
 
@@ -235,8 +246,8 @@ class AttributeOptionBase(BaseModel):
     attribute_id: int
     name: str
     description: Optional[str] = None
-    cost: Decimal = Field(..., description="Cost with up to 2 decimal places")
-    cost_per_unit: Optional[Decimal] = Field(None, description="Cost per unit with up to 2 decimal places")
+    cost: float = Field(..., description="Cost with up to 2 decimal places")
+    cost_per_unit: Optional[float] = Field(None, description="Cost per unit with up to 2 decimal places")
     unit_id: Optional[int] = None
     display_order: int = 0
     is_active: bool = True
@@ -249,8 +260,8 @@ class AttributeOptionCreate(AttributeOptionBase):
 class AttributeOptionUpdate(AttributeOptionBase):
     name: Optional[str] = None
     description: Optional[str] = None
-    cost: Optional[Decimal] = None
-    cost_per_unit: Optional[Decimal] = None
+    cost: Optional[float] = None
+    cost_per_unit: Optional[float] = None
     unit_id: Optional[int] = None
     display_order: Optional[int] = None
     is_active: Optional[bool] = None
@@ -399,7 +410,7 @@ class QuotationUpdate(QuotationBase):
 class QuotationResponse(QuotationBase):
     id: int
     quotation_number: str
-    total_amount: Optional[Decimal] = None
+    total_amount: Optional[float] = None
     customer: "CustomerResponse"
     items: List["QuotationItemResponse"] = []
     created_by: Optional[str] = None
@@ -417,10 +428,10 @@ class QuotationItemBase(BaseModel):
     door_type_id: int
     thickness_option_id: int
     quantity: int = 1
-    length: Decimal = Field(..., description="Length with up to 2 decimal places")
-    breadth: Decimal = Field(..., description="Breadth with up to 2 decimal places")
-    tax_percentage: Decimal = Field(default=Decimal('0'), description="Tax percentage applied to unit price with attributes")
-    discount_amount: Decimal = Field(default=Decimal('0'), description="Flat discount amount per unit after tax")
+    length: float = Field(..., description="Length with up to 2 decimal places")
+    breadth: float = Field(..., description="Breadth with up to 2 decimal places")
+    tax_percentage: float = Field(default=float('0'), description="Tax percentage applied to unit price with attributes")
+    discount_amount: float = Field(default=float('0'), description="Flat discount amount per unit after tax")
 
 
 class QuotationItemCreate(QuotationItemBase):
@@ -433,22 +444,22 @@ class QuotationItemUpdate(QuotationItemBase):
     door_type_id: Optional[int] = None
     thickness_option_id: Optional[int] = None
     quantity: Optional[int] = None
-    length: Optional[Decimal] = None
-    breadth: Optional[Decimal] = None
+    length: Optional[float] = None
+    breadth: Optional[float] = None
 
 
 class QuotationItemResponse(QuotationItemBase):
     id: int
-    door_type: "DoorTypeResponse"
+    door_type: "DoorTypeShortResponse"
     thickness_option: Optional["DoorTypeThicknessOptionResponse"] = None
-    attributes: List["QuotationItemAttributeResponse"] = []
-    base_cost_per_unit: Optional[Decimal] = None
-    attribute_cost_per_unit: Optional[Decimal] = None
-    unit_price_before_tax: Optional[Decimal] = None  # Price after discount, before tax
-    unit_price_with_attributes: Optional[Decimal] = None  # Final price (after discount and tax)
-    total_item_cost: Optional[Decimal] = None
-    tax_percentage: Optional[Decimal] = None
-    discount_amount: Optional[Decimal] = None
+    attributes: List["QuotationItemAttributeResponse"] = None
+    base_cost_per_unit: Optional[float] = None
+    attribute_cost_per_unit: Optional[float] = None
+    unit_price_before_tax: Optional[float] = None  # Price after discount, before tax
+    unit_price_with_attributes: Optional[float] = None  # Final price (after discount and tax)
+    total_item_cost: Optional[float] = None
+    tax_percentage: Optional[float] = None
+    discount_amount: Optional[float] = None
     created_by: Optional[str] = None
     updated_by: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -464,7 +475,7 @@ class QuotationItemAttributeBase(BaseModel):
     attribute_id: int
     selected_option_id: Optional[int] = None
     double_side: bool = False
-    direct_cost: Optional[Decimal] = Field(None, description="Direct cost entered by user for this attribute")
+    direct_cost: Optional[float] = Field(None, description="Direct cost entered by user for this attribute")
 
 
 class QuotationItemAttributeCreate(QuotationItemAttributeBase):
@@ -476,14 +487,16 @@ class QuotationItemAttributeUpdate(QuotationItemAttributeBase):
     quotation_item_id: Optional[int] = None
     attribute_id: Optional[int] = None
     double_side: Optional[bool] = None
-    direct_cost: Optional[Decimal] = None
+    direct_cost: Optional[float] = None
 
 
 class QuotationItemAttributeResponse(QuotationItemAttributeBase):
     id: int
-    attribute: "AttributeResponse"
-    calculated_cost: Optional[Decimal] = None
-    total_attribute_cost: Optional[Decimal] = None
+    attribute: "AttributeShortResponse"
+    selected_option: Optional["AttributeOptionResponse"] = None
+    unit_values: List["UnitValueResponse"] = None
+    calculated_cost: Optional[float] = None
+    total_attribute_cost: Optional[float] = None
     created_by: Optional[str] = None
     updated_by: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -496,8 +509,8 @@ class QuotationItemAttributeResponse(QuotationItemAttributeBase):
 class UnitValueBase(BaseModel):
     quotation_item_attribute_id: int
     unit_id: int
-    value1: Optional[Decimal] = Field(None, description="Value1 with up to 2 decimal places")
-    value2: Optional[Decimal] = Field(None, description="Value2 with up to 2 decimal places")
+    value1: Optional[float] = Field(None, description="Value1 with up to 2 decimal places")
+    value2: Optional[float] = Field(None, description="Value2 with up to 2 decimal places")
 
 
 class UnitValueCreate(UnitValueBase):
@@ -507,8 +520,8 @@ class UnitValueCreate(UnitValueBase):
 class UnitValueUpdate(UnitValueBase):
     quotation_item_attribute_id: Optional[int] = None
     unit_id: Optional[int] = None
-    value1: Optional[Decimal] = None
-    value2: Optional[Decimal] = None
+    value1: Optional[float] = None
+    value2: Optional[float] = None
 
 
 class UnitValueResponse(UnitValueBase):

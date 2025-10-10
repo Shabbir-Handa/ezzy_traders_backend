@@ -355,7 +355,7 @@ class CostCalculator:
             'base_cost_breakdown': base_cost_breakdown,
             'attribute_costs': attribute_costs,
             'per_unit_attribute_total': per_unit_attribute_total,
-            'unit_price_with_attributes': unit_price_with_attributes,
+            'unit_price_with_attributes': unit_price_final,
             'total_item_cost': total_item_cost,
             'quantity': item.quantity
         }
