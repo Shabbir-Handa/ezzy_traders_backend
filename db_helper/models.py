@@ -9,8 +9,8 @@ Functional Groups:
 4. Unit and Measurement Management
 """
 
-from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, PrimaryKeyConstraint, func, \
-    Enum as SAEnum, Date, Boolean, CheckConstraint, UniqueConstraint, and_
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, PrimaryKeyConstraint, func, \
+    Enum as SAEnum, Date, Boolean, UniqueConstraint, and_, Float
 from sqlalchemy.orm import relationship, foreign
 from sqlalchemy.ext.declarative import declarative_base
 from enum import Enum as PyEnum
@@ -26,6 +26,7 @@ Base = declarative_base()
 
 class Employee(Base):
     __tablename__ = "employee"
+
     id = Column(Integer, primary_key=True, index=True)
     
     username = Column(String, unique=True, index=True, nullable=False)
@@ -35,7 +36,7 @@ class Employee(Base):
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     role = Column(String, nullable=False, default="viewer")  # Simple string role
-    is_active = Column(Boolean, default=True)
+
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
@@ -60,7 +61,6 @@ class Customer(Base):
     postal_code = Column(String)
     country = Column(String)
     
-    is_active = Column(Boolean, default=True)
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
@@ -77,12 +77,6 @@ class CostType(PyEnum):
     CONSTANT = 'constant'
     VARIABLE = 'variable'
     DIRECT = 'direct'
-    NESTED = 'nested'
-
-
-class EntityType(PyEnum):
-    DOOR = 'door'
-    BOX = 'box'  
 
 
 class DoorType(Base):
@@ -93,30 +87,13 @@ class DoorType(Base):
     name = Column(String, nullable=False)
     description = Column(String)
     
-    is_active = Column(Boolean, default=True)
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
-    # Many-to-many with Attribute via EntityAttribute
-    attributes = relationship(
-        'Attribute',
-        secondary='entity_attribute',
-        primaryjoin="and_(EntityAttribute.entity_type == 'door', EntityAttribute.entity_id == DoorType.id)",
-        secondaryjoin="EntityAttribute.attribute_id == Attribute.id",
-        back_populates='door_types'
-    )
-
-    entity_attributes = relationship(
-        'EntityAttribute',
-        primaryjoin=lambda: and_(
-            foreign(EntityAttribute.entity_id) == DoorType.id,
-            EntityAttribute.entity_type == 'door'
-        ),
-        order_by='EntityAttribute.order'
-    )
-
+    # Many-to-many with Attribute via DoorTypeAttribute
+    door_type_attributes = relationship('DoorTypeAttribute', back_populates='door_type', cascade="all, delete-orphan")
     # One-to-many to quotation items
     items = relationship('QuotationItem', back_populates='door_type')
     # One-to-many to thickness options
@@ -129,16 +106,16 @@ class DoorTypeThicknessOption(Base):
     id = Column(Integer, primary_key=True)
     door_type_id = Column(Integer, ForeignKey('door_type.id'), nullable=False)
     
-    thickness_value = Column(Numeric(5, 2), nullable=False)  # Thickness in mm
-    cost_per_sqft = Column(Numeric(10, 2), nullable=False)  # Cost per square foot for this thickness
+    thickness_value = Column(Float, nullable=False)  # Thickness in mm
+    cost_per_sqft = Column(Float, nullable=False)  # Cost per square foot for this thickness
     
-    is_active = Column(Boolean, default=True)
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
     door_type = relationship('DoorType', back_populates='thickness_options')
+    quotation_items = relationship('QuotationItem', back_populates='thickness_option')
 
 
 class Attribute(Base):
@@ -152,35 +129,20 @@ class Attribute(Base):
     # Unified cost structure - replaces separate constant/variable/direct tables
     cost_type = Column(SAEnum(CostType, values_callable=lambda e: [member.value for member in e], name='cost_type'),
                        nullable=False)
-
-    # For constant costs
-    fixed_cost = Column(Numeric(10, 2))
-
-    # For variable costs
-    cost_per_unit = Column(Numeric(10, 2))
+    cost = Column(Float, nullable=True)
     unit_id = Column(Integer, ForeignKey('unit.id'))
 
     # Audit fields
-    is_active = Column(Boolean, default=True)
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
-    # Single options relationship for all types
     options = relationship('AttributeOption', back_populates='attribute', cascade="all, delete-orphan")
-
-    # Many-to-many with DoorType via EntityAttribute
-    door_types = relationship(
-        'DoorType',
-        secondary='entity_attribute',
-        primaryjoin="and_(EntityAttribute.entity_type == 'door', EntityAttribute.attribute_id == Attribute.id)",
-        secondaryjoin="EntityAttribute.entity_id == DoorType.id",
-        back_populates='attributes'
-    )
-
-    # Unit relationship
     unit = relationship('Unit', back_populates='attributes')
+    nested_attribute_child = relationship('NestedAttributeChild', back_populates='attribute', cascade="all, delete-orphan")
+    door_type_attribute = relationship('DoorTypeAttribute', back_populates='attributes', cascade="all, delete-orphan")
+    quotation_item_attribute = relationship('QuotationItemAttribute', back_populates='attribute')
 
 
 class AttributeOption(Base):
@@ -193,15 +155,9 @@ class AttributeOption(Base):
     description = Column(String)
 
     # Cost fields that work for all types
-    cost = Column(Numeric(10, 2), nullable=False, default=0)
-    cost_per_unit = Column(Numeric(10, 2))
-    unit_id = Column(Integer, ForeignKey('unit.id'))
-
-    # For ordering options
-    display_order = Column(Integer, default=0)
+    cost = Column(Float, nullable=True)
 
     # Audit fields
-    is_active = Column(Boolean, default=True)
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
@@ -209,12 +165,7 @@ class AttributeOption(Base):
 
     # Relationships
     attribute = relationship('Attribute', back_populates='options')
-    unit = relationship('Unit')
-
-    __table_args__ = (
-        # Ensure at least one cost field is provided
-        CheckConstraint('cost > 0 OR cost_per_unit > 0', name='check_cost_provided'),
-    )
+    quotation_item_attribute = relationship('QuotationItemAttribute', back_populates='selected_option')
 
 
 class NestedAttribute(Base):
@@ -222,45 +173,48 @@ class NestedAttribute(Base):
     
     id = Column(Integer, primary_key=True)
     
-    # Parent attribute (the main component)
-    parent_attribute_id = Column(Integer, ForeignKey('attribute.id'), nullable=False)
-    
-    # Child attribute (the nested component)
-    child_attribute_id = Column(Integer, ForeignKey('attribute.id'), nullable=False)
-    
-    relationship_order = Column(Integer, default=0)
+    name = Column(String, nullable=False)
+    description = Column(String)
 
     # Audit fields
-    is_active = Column(Boolean, default=True)
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
-    # Relationships
-    parent_attribute = relationship('Attribute', foreign_keys=[parent_attribute_id])
-    child_attribute = relationship('Attribute', foreign_keys=[child_attribute_id])
-
-    __table_args__ = (
-        UniqueConstraint('parent_attribute_id', 'child_attribute_id', name='uq_parent_child_attribute'),
-    )
+    nested_attribute_children = relationship('NestedAttributeChild', back_populates='nested_attribute', cascade="all, delete-orphan")
+    door_type_attribute = relationship('DoorTypeAttribute', back_populates='nested_attributes', cascade="all, delete-orphan")
+    quotation_item_nested_attribute = relationship('QuotationItemNestedAttribute', back_populates='nested_attribute')
 
 
-class EntityAttribute(Base):
-    __tablename__ = 'entity_attribute'
+class NestedAttributeChild(Base):
+    __tablename__ = 'nested_attribute_child'
+    id = Column(Integer, primary_key=True)
+    nested_attribute_id = Column(Integer, ForeignKey('nested_attribute.id'), nullable=False)
+    attribute_id = Column(Integer, ForeignKey('attribute.id'), nullable=False)
+
+    required = Column(Boolean, default=False)
+
+    # Audit fields
+    created_by = Column(String, nullable=True)
+    updated_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+
+    nested_attribute = relationship('NestedAttribute', back_populates='nested_attribute_children')
+    attribute = relationship('Attribute', back_populates='nested_attribute_child')
+
+
+class DoorTypeAttribute(Base):
+    __tablename__ = 'door_type_attribute'
     id = Column(Integer, primary_key=True)
 
-    # Polymorphic relationship to any entity
-    entity_type = Column(
-        SAEnum(EntityType, values_callable=lambda e: [member.value for member in e], name='entity_type'),
-        nullable=False)
-    entity_id = Column(Integer, nullable=False)
-    attribute_id = Column(Integer, ForeignKey('attribute.id'), nullable=False)
+    door_type_id = Column(Integer, ForeignKey('door_type.id', ondelete='CASCADE'), nullable=False)
+    attribute_id = Column(Integer, ForeignKey('attribute.id'), nullable=True)
+    nested_attribute_id = Column(Integer, ForeignKey('nested_attribute.id'), nullable=True)
 
     # Common fields
     required = Column(Boolean, default=False)
-    order = Column(Integer, default=0)
-    custom_value = Column(String)  # For domain-specific overrides
 
     # Audit fields
     created_by = Column(String, nullable=True)
@@ -269,10 +223,13 @@ class EntityAttribute(Base):
     updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
     # Relationships
-    attribute = relationship('Attribute')
+    attributes = relationship('Attribute', back_populates='door_type_attribute')
+    door_type = relationship('DoorType', back_populates='door_type_attributes')
+    nested_attributes = relationship('NestedAttribute', back_populates='door_type_attribute')
 
     __table_args__ = (
-        UniqueConstraint('entity_type', 'entity_id', 'attribute_id', name='uq_entity_attribute'),
+        UniqueConstraint('door_type_id', 'attribute_id', name='uq_door_type_attribute'),
+        UniqueConstraint('door_type_id', 'nested_attribute_id', name='uq_door_type_nested_attribute')
     )
 
 
@@ -289,15 +246,14 @@ class Unit(Base):
     abbreviation = Column(String, nullable=True)
     unit_type = Column(String(20), nullable=False)  # Linear or Vector
     
-    is_active = Column(Boolean, default=True)
+    # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
     # Backrefs
-    attributes = relationship('Attribute', back_populates='unit')
-    attribute_options = relationship('AttributeOption', back_populates='unit')
+    attributes = relationship('Attribute', back_populates='unit', cascade="all, delete-orphan")
     unit_values = relationship('UnitValue', back_populates='unit')
 
 
@@ -313,7 +269,7 @@ class Quotation(Base):
     date = Column(Date, nullable=False, default=date.today())
     status = Column(String, default='pending')
     quotation_number = Column(String, nullable=False, unique=True)
-    total_amount = Column(Numeric(10, 2), nullable=False, default=0)
+    total_amount = Column(Float, nullable=False, default=0)
     
     # Audit fields
     created_by = Column(String, nullable=True)
@@ -333,19 +289,20 @@ class QuotationItem(Base):
     door_type_id = Column(Integer, ForeignKey('door_type.id'), nullable=False)
     thickness_option_id = Column(Integer, ForeignKey('door_type_thickness_option.id'), nullable=False)  # For cost calculation
     
-    length = Column(Numeric(8, 2), nullable=False)  # Length in inches
-    breadth = Column(Numeric(8, 2), nullable=False)  # Breadth in inches
+    length = Column(Float, nullable=False)  # Length in inches
+    breadth = Column(Float, nullable=False)  # Breadth in inches
     quantity = Column(Integer, nullable=False, default=1)
     # Cost breakdown fields
-    base_cost_per_unit = Column(Numeric(10, 2), nullable=False, default=0)  # Base door cost per unit (without attributes)
-    attribute_cost_per_unit = Column(Numeric(10, 2), nullable=False, default=0)  # Sum of attributes cost per unit
-    unit_price_before_tax = Column(Numeric(10, 2), nullable=False, default=0)  # Per-unit price after discount, before tax
-    unit_price_with_attributes = Column(Numeric(10, 2), nullable=False, default=0)  # FINAL per-unit price (after tax & discount)
-    total_item_cost = Column(Numeric(12, 2), nullable=False, default=0)  # unit_price_with_attributes * quantity
+    base_cost_per_unit = Column(Float, nullable=False, default=0)  # Base door cost per unit (without attributes)
+    attribute_cost_per_unit = Column(Float, nullable=False, default=0)  # Sum of attributes cost per unit
+    unit_price_with_attributes = Column(Float, nullable=False, default=0)  #  per-unit price with attributes
+    unit_price_with_discount = Column(Float, nullable=False, default=0)  # Per-unit price after discount, before tax
+    unit_price_with_tax = Column(Float, nullable=False, default=0)  # Per-unit price after discount, before tax
+    total_item_cost = Column(Float, nullable=False, default=0)  # unit_price_with_attributes * quantity
 
     # Tax and discount (applied in order: discount first, then tax)
-    tax_percentage = Column(Numeric(5, 2), nullable=False, default=0)  # Tax percentage applied AFTER discount
-    discount_amount = Column(Numeric(10, 2), nullable=False, default=0)  # Flat discount per unit applied BEFORE tax
+    tax_percentage = Column(Float, nullable=False, default=0)  # Tax percentage applied AFTER discount
+    discount_amount = Column(Float, nullable=False, default=0)  # Flat discount per unit applied BEFORE tax
 
     # Audit fields
     created_by = Column(String, nullable=True)
@@ -355,7 +312,7 @@ class QuotationItem(Base):
 
     quotation = relationship('Quotation', back_populates='items')
     door_type = relationship('DoorType', back_populates='items')
-    thickness_option = relationship('DoorTypeThicknessOption', backref='quotation_items')  # Relationship to thickness option
+    thickness_option = relationship('DoorTypeThicknessOption', back_populates='quotation_items')  # Relationship to thickness option
     # Association object for attribute selections on this item
     attributes = relationship('QuotationItemAttribute', back_populates='quotation_item', cascade="all, delete-orphan")
 
@@ -364,13 +321,14 @@ class QuotationItemAttribute(Base):
     __tablename__ = 'quotation_item_attribute'
     id = Column(Integer, primary_key=True)
     quotation_item_id = Column(Integer, ForeignKey('quotation_item.id'), nullable=False)
+    quotation_item_nested_attribute_id = Column(Integer, ForeignKey('quotation_item_nested_attribute.id'), nullable=True)
     attribute_id = Column(Integer, ForeignKey('attribute.id'), nullable=False)
-    selected_option_id = Column(Integer, nullable=True)  # For constant_type and variable_type
+    selected_option_id = Column(Integer, ForeignKey('attribute_option.id'), nullable=True)  # For constant_type and variable_type
     
     double_side = Column(Boolean, default=False)  # User's choice for double side
-    direct_cost = Column(Numeric(10, 2), nullable=True)  # Direct cost entered by user
-    calculated_cost = Column(Numeric(10, 2), nullable=True)  # Calculated cost from system
-    total_attribute_cost = Column(Numeric(10, 2), nullable=False, default=0)  # Total cost (direct + calculated)
+    direct_cost = Column(Float, nullable=True)  # Direct cost entered by user
+    calculated_cost = Column(Float, nullable=True)  # Calculated cost from system
+    total_attribute_cost = Column(Float, nullable=False, default=0)  # Total cost (direct + calculated)
 
     # Audit fields
     created_by = Column(String, nullable=True)
@@ -379,8 +337,25 @@ class QuotationItemAttribute(Base):
     updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
     quotation_item = relationship('QuotationItem', back_populates='attributes')
-    attribute = relationship('Attribute')
+    quotation_item_nested_attribute = relationship('QuotationItemNestedAttribute', back_populates='quotation_item_attribute')
+    attribute = relationship('Attribute', back_populates='quotation_item_attribute')
+    selected_option = relationship('AttributeOption', back_populates='quotation_item_attribute')
     unit_values = relationship('UnitValue', back_populates='quotation_item_attribute', cascade="all, delete-orphan")
+
+
+class QuotationItemNestedAttribute(Base):
+    __tablename__ = 'quotation_item_nested_attribute'
+    id = Column(Integer, primary_key=True)
+    nested_attribute_id = Column(Integer, ForeignKey('nested_attribute.id'), nullable=False)
+
+    # Audit fields
+    created_by = Column(String, nullable=True)
+    updated_by = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+
+    nested_attribute = relationship('NestedAttribute', back_populates='quotation_item_nested_attribute')
+    quotation_item_attribute = relationship('QuotationItemAttribute', back_populates='quotation_item_nested_attribute', cascade="all, delete-orphan")
 
 
 class UnitValue(Base):
@@ -390,8 +365,8 @@ class UnitValue(Base):
     quotation_item_attribute_id = Column(Integer, ForeignKey('quotation_item_attribute.id'), nullable=False)
     unit_id = Column(Integer, ForeignKey('unit.id'), nullable=False)
     
-    value1 = Column(Numeric(10, 2), nullable=True)  # For single units (kg, piece) or length for area/linear
-    value2 = Column(Numeric(10, 2), nullable=True)  # For area units (breadth) or null for single/linear
+    value1 = Column(Float, nullable=True)  # For single units (kg, piece) or length for area/linear
+    value2 = Column(Float, nullable=True)  # For area units (breadth) or null for single/linear
     
     unit = relationship('Unit', back_populates='unit_values')
     quotation_item_attribute = relationship('QuotationItemAttribute', back_populates='unit_values')

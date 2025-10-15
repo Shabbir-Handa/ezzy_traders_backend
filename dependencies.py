@@ -18,13 +18,18 @@ from schemas.schemas import TokenData
 # DATABASE CONFIGURATION
 # ============================================================================
 
-try:
-    DATABASE_URL = "postgresql://postgres:1A58gW3HQ0VrZZsT@db.aqwiookdxlsskmznqkgy.supabase.co:5432/postgres"
-    engine = create_engine(DATABASE_URL)
-except:
-    DATABASE_URL = "postgresql://postgres.aqwiookdxlsskmznqkgy:1A58gW3HQ0VrZZsT@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
-    engine = create_engine(DATABASE_URL)
+# try:
+#     DATABASE_URL = "postgresql://postgres:TrA+ZPrfhwjLa7i@db.vanonpimvxobfypishpo.supabase.co:5432/postgres"
+#     engine = create_engine(DATABASE_URL)
+# except:
+#     DATABASE_URL = "postgresql://postgres.aqwiookdxlsskmznqkgy:1A58gW3HQ0VrZZsT@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
+#     engine = create_engine(DATABASE_URL)
+# SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+DATABASE_URL = "postgresql://postgres:TrA+ZPrfhwjLa7i@db.vanonpimvxobfypishpo.supabase.co:5432/postgres"
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 # ============================================================================
 # PASSWORD HASHING
@@ -122,7 +127,6 @@ async def get_user(
 
     user = db.query(Employee).filter(
         Employee.username == username,
-        Employee.is_active == True
     ).first()
     if user is None:
         raise credentials_exception
@@ -134,6 +138,4 @@ async def get_current_active_user(
         current_user: Annotated[Employee, Depends(get_current_user)]
 ) -> Employee:
     """Get current active user"""
-    if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
     return current_user

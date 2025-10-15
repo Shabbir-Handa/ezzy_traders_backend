@@ -4,7 +4,6 @@ Complete schema definitions for all entities
 """
 
 from datetime import datetime
-from decimal import Decimal
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, Field
 from enum import Enum
@@ -19,13 +18,6 @@ class CostType(str, Enum):
     CONSTANT = 'constant'
     VARIABLE = 'variable'
     DIRECT = 'direct'
-    NESTED = 'nested'
-
-
-class EntityType(str, Enum):
-    """Entity type enumeration for attributes and entities"""
-    DOOR = 'door'
-    BOX = 'box'
 
 
 # ============================================================================
@@ -43,8 +35,7 @@ class EmployeeBase(BaseModel):
     phone: str
     first_name: str
     last_name: str
-    role: str = Field(..., description="Employee role (e.g., admin, manager, sales, engineer, viewer)")
-    is_active: bool = True
+    role: str
 
 
 class EmployeeCreate(EmployeeBase):
@@ -58,15 +49,14 @@ class EmployeeUpdate(EmployeeBase):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     role: Optional[str] = None
-    is_active: Optional[bool] = None
 
 
 class EmployeeResponse(EmployeeBase):
     id: int
-    created_by: Optional[str] = None
-    updated_by: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -88,8 +78,7 @@ class EmployeeLoginResponse(BaseModel):
 class UnitBase(BaseModel):
     name: str
     abbreviation: str
-    unit_type: str = Field(..., description="Linear or Vector")
-    is_active: bool = True
+    unit_type: str
 
 
 class UnitCreate(UnitBase):
@@ -100,15 +89,14 @@ class UnitUpdate(UnitBase):
     name: Optional[str] = None
     abbreviation: Optional[str] = None
     unit_type: Optional[str] = None
-    is_active: Optional[bool] = None
 
 
 class UnitResponse(UnitBase):
     id: int
-    created_by: Optional[str] = None
-    updated_by: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -118,7 +106,6 @@ class UnitResponse(UnitBase):
 class DoorTypeBase(BaseModel):
     name: str
     description: Optional[str] = None
-    is_active: bool = True
 
 
 class DoorTypeCreate(DoorTypeBase):
@@ -128,20 +115,20 @@ class DoorTypeCreate(DoorTypeBase):
 class DoorTypeUpdate(DoorTypeBase):
     name: Optional[str] = None
     description: Optional[str] = None
-    is_active: Optional[bool] = None
 
 
 class DoorTypeResponse(DoorTypeBase):
     id: int
-    entity_attributes: List["EntityAttributeResponse"] = []
+    door_type_attributes: List["DoorTypeAttributeResponse"] = []
     thickness_options: List["DoorTypeThicknessOptionResponse"] = []
-    created_by: Optional[str] = None
-    updated_by: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
+
 
 class DoorTypeShortResponse(DoorTypeBase):
     id: int
@@ -152,9 +139,8 @@ class DoorTypeShortResponse(DoorTypeBase):
 # Door Type Thickness Option Schemas
 class DoorTypeThicknessOptionBase(BaseModel):
     door_type_id: int
-    thickness_value: Decimal = Field(..., description="Thickness with up to 2 decimal places")
-    cost_per_sqft: Decimal = Field(..., description="Price adjustment with up to 2 decimal places")
-    is_active: bool = True
+    thickness_value: float
+    cost_per_sqft: float
 
 
 class DoorTypeThicknessOptionCreate(DoorTypeThicknessOptionBase):
@@ -163,17 +149,16 @@ class DoorTypeThicknessOptionCreate(DoorTypeThicknessOptionBase):
 
 class DoorTypeThicknessOptionUpdate(DoorTypeThicknessOptionBase):
     door_type_id: Optional[int] = None
-    thickness_value: Optional[Decimal] = None
-    cost_per_sqft: Optional[Decimal] = None
-    is_active: Optional[bool] = None
+    thickness_value: Optional[float] = None
+    cost_per_sqft: Optional[float] = None
 
 
 class DoorTypeThicknessOptionResponse(DoorTypeThicknessOptionBase):
     id: int
-    created_by: Optional[str] = None
-    updated_by: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -184,14 +169,13 @@ class AttributeBase(BaseModel):
     name: str
     description: Optional[str] = None
     double_side: bool = False
-    cost_type: CostType = Field(..., description="Type of cost calculation")
-    fixed_cost: Optional[Decimal] = Field(None, description="Fixed cost with up to 2 decimal places")
-    cost_per_unit: Optional[Decimal] = Field(None, description="Cost per unit with up to 2 decimal places")
+    cost_type: CostType
+    cost: Optional[float] = None
     unit_id: Optional[int] = None
-    is_active: bool = True
 
 
 class AttributeCreate(AttributeBase):
+    has_options: bool = False
     options: Optional[List["AttributeOptionCreate"]] = None
 
 
@@ -200,20 +184,18 @@ class AttributeUpdate(AttributeBase):
     description: Optional[str] = None
     double_side: Optional[bool] = None
     cost_type: Optional[CostType] = None
-    fixed_cost: Optional[Decimal] = None
-    cost_per_unit: Optional[Decimal] = None
+    cost: Optional[float] = None
     unit_id: Optional[int] = None
-    is_active: Optional[bool] = None
 
 
 class AttributeResponse(AttributeBase):
     id: int
     options: List["AttributeOptionResponse"] = []
     unit: Optional["UnitResponse"] = None
-    created_by: Optional[str] = None
-    updated_by: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -227,16 +209,13 @@ class AttributeShortResponse(AttributeBase):
 
 
 class AttributeListResponse(BaseModel):
-    """Lightweight response for attribute list views - excludes options and audit fields"""
     id: int
     name: str
     description: Optional[str] = None
     double_side: bool
     cost_type: CostType
-    fixed_cost: Optional[Decimal] = None
-    cost_per_unit: Optional[Decimal] = None
+    cost: Optional[float] = None
     unit_id: Optional[int] = None
-    is_active: bool
 
     class Config:
         from_attributes = True
@@ -247,11 +226,7 @@ class AttributeOptionBase(BaseModel):
     attribute_id: int
     name: str
     description: Optional[str] = None
-    cost: Decimal = Field(..., description="Cost with up to 2 decimal places")
-    cost_per_unit: Optional[Decimal] = Field(None, description="Cost per unit with up to 2 decimal places")
-    unit_id: Optional[int] = None
-    display_order: int = 0
-    is_active: bool = True
+    cost: Optional[float] = None
 
 
 class AttributeOptionCreate(AttributeOptionBase):
@@ -261,55 +236,47 @@ class AttributeOptionCreate(AttributeOptionBase):
 class AttributeOptionUpdate(AttributeOptionBase):
     name: Optional[str] = None
     description: Optional[str] = None
-    cost: Optional[Decimal] = None
-    cost_per_unit: Optional[Decimal] = None
-    unit_id: Optional[int] = None
-    display_order: Optional[int] = None
-    is_active: Optional[bool] = None
+    cost: Optional[float] = None
 
 
 class AttributeOptionResponse(AttributeOptionBase):
     id: int
-    unit: Optional["UnitResponse"] = None
-    created_by: Optional[str] = None
-    updated_by: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
 
 
-# Entity Attribute Schemas
-class EntityAttributeBase(BaseModel):
-    entity_type: EntityType = Field(..., description="Type of entity")
-    entity_id: int
-    attribute_id: int
+# Door Type Attribute Schemas
+class DoorTypeAttributeBase(BaseModel):
+    door_type_id: int
+    attribute_id: Optional[int] = None
+    nested_attribute_id: Optional[int] = None
     required: bool = False
-    order: int = 0
-    custom_value: Optional[str] = None
 
 
-class EntityAttributeCreate(EntityAttributeBase):
+class DoorTypeAttributeCreate(DoorTypeAttributeBase):
     pass
 
 
-class EntityAttributeUpdate(EntityAttributeBase):
-    entity_type: Optional[EntityType] = None
-    entity_id: Optional[int] = None
+class DoorTypeAttributeUpdate(DoorTypeAttributeBase):
+    door_type_id: Optional[int] = None
     attribute_id: Optional[int] = None
+    nested_attribute_id: Optional[int] = None
     required: Optional[bool] = None
-    order: Optional[int] = None
-    custom_value: Optional[str] = None
 
 
-class EntityAttributeResponse(EntityAttributeBase):
+class DoorTypeAttributeResponse(DoorTypeAttributeBase):
     id: int
-    attribute: "AttributeResponse"
-    created_by: Optional[str] = None
-    updated_by: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    attribute: Optional["AttributeResponse"] = None
+    nested_attribute: Optional["NestedAttributeResponse"] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -317,31 +284,60 @@ class EntityAttributeResponse(EntityAttributeBase):
 
 # Nested Attribute Schemas
 class NestedAttributeBase(BaseModel):
-    parent_attribute_id: int
-    child_attribute_id: int
-    relationship_order: int = 0
-    is_active: bool = True
+    name: str
+    description: Optional[str] = None
 
 
 class NestedAttributeCreate(NestedAttributeBase):
-    pass
+    children: Optional[List["NestedAttributeChildCreate"]] = None
 
 
 class NestedAttributeUpdate(NestedAttributeBase):
-    parent_attribute_id: Optional[int] = None
-    child_attribute_id: Optional[int] = None
-    relationship_order: Optional[int] = None
-    is_active: Optional[bool] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
 
 
-class NestedAttributeResponse(NestedAttributeBase):
+class NestedAttributeShortResponse(NestedAttributeBase):
     id: int
-    parent_attribute: "AttributeResponse"
-    child_attribute: "AttributeResponse"
-    created_by: Optional[str] = None
-    updated_by: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class NestedAttributeResponse(NestedAttributeShortResponse):
+    children: List["NestedAttributeChildResponse"] = []
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class NestedAttributeChildBase(BaseModel):
+    nested_attribute_id: int
+    attribute_id: int
+    required: bool = False
+
+
+class NestedAttributeChildCreate(NestedAttributeChildBase):
+    nested_attribute_id: Optional[int] = None
+
+
+class NestedAttributeChildUpdate(NestedAttributeChildBase):
+    nested_attribute_id: Optional[int] = None
+    attribute_id: Optional[int] = None
+    required: Optional[bool] = None
+
+
+class NestedAttributeChildResponse(NestedAttributeChildBase):
+    id: int
+    attribute: Optional["AttributeResponse"] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -361,7 +357,6 @@ class CustomerBase(BaseModel):
     state: Optional[str] = None
     postal_code: Optional[str] = None
     country: Optional[str] = None
-    is_active: bool = True
 
 
 class CustomerCreate(CustomerBase):
@@ -377,15 +372,14 @@ class CustomerUpdate(CustomerBase):
     state: Optional[str] = None
     postal_code: Optional[str] = None
     country: Optional[str] = None
-    is_active: Optional[bool] = None
 
 
 class CustomerResponse(CustomerBase):
     id: int
-    created_by: Optional[str] = None
-    updated_by: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -395,7 +389,7 @@ class CustomerResponse(CustomerBase):
 class QuotationBase(BaseModel):
     customer_id: int
     date: datetime
-    status: str = Field(default="pending", description="draft, sent, accepted, rejected, expired")
+    status: str
 
 
 class QuotationCreate(QuotationBase):
@@ -411,16 +405,27 @@ class QuotationUpdate(QuotationBase):
 class QuotationResponse(QuotationBase):
     id: int
     quotation_number: str
-    total_amount: Optional[Decimal] = None
+    total_amount: Optional[float] = None
     customer: "CustomerResponse"
-    items: List["QuotationItemResponse"] = []
-    created_by: Optional[str] = None
-    updated_by: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    items: List["QuotationItemResponse"] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class QuotationShortResponse(QuotationBase):
+    id: int
+    quotation_number: str
+    total_amount: Optional[float] = None
+    customer: "CustomerResponse"
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
 
 # Quotation Item Schemas
@@ -429,15 +434,16 @@ class QuotationItemBase(BaseModel):
     door_type_id: int
     thickness_option_id: int
     quantity: int = 1
-    length: Decimal = Field(..., description="Length with up to 2 decimal places")
-    breadth: Decimal = Field(..., description="Breadth with up to 2 decimal places")
-    tax_percentage: Decimal = Field(default=Decimal('0'), description="Tax percentage applied to unit price with attributes")
-    discount_amount: Decimal = Field(default=Decimal('0'), description="Flat discount amount per unit after tax")
+    length: float
+    breadth: float
+    tax_percentage: Optional[float] = None
+    discount_amount: Optional[float] = None
 
 
 class QuotationItemCreate(QuotationItemBase):
     quotation_id: Optional[int] = None  # Optional when creating
     attributes: Optional[List["QuotationItemAttributeCreate"]] = None
+    nested_attributes: Optional[List["QuotationItemNestedAttributeCreate"]] = None
 
 
 class QuotationItemUpdate(QuotationItemBase):
@@ -445,8 +451,8 @@ class QuotationItemUpdate(QuotationItemBase):
     door_type_id: Optional[int] = None
     thickness_option_id: Optional[int] = None
     quantity: Optional[int] = None
-    length: Optional[Decimal] = None
-    breadth: Optional[Decimal] = None
+    length: Optional[float] = None
+    breadth: Optional[float] = None
 
 
 class QuotationItemResponse(QuotationItemBase):
@@ -454,17 +460,16 @@ class QuotationItemResponse(QuotationItemBase):
     door_type: "DoorTypeShortResponse"
     thickness_option: Optional["DoorTypeThicknessOptionResponse"] = None
     attributes: List["QuotationItemAttributeResponse"] = None
-    base_cost_per_unit: Optional[Decimal] = None
-    attribute_cost_per_unit: Optional[Decimal] = None
-    unit_price_before_tax: Optional[Decimal] = None  # Price after discount, before tax
-    unit_price_with_attributes: Optional[Decimal] = None  # Final price (after discount and tax)
-    total_item_cost: Optional[Decimal] = None
-    tax_percentage: Optional[Decimal] = None
-    discount_amount: Optional[Decimal] = None
-    created_by: Optional[str] = None
-    updated_by: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    base_cost_per_unit: Optional[float] = None
+    attribute_cost_per_unit: Optional[float] = None
+    unit_price_with_attributes: Optional[float] = None  # Price with attributes
+    unit_price_with_discount: Optional[float] = None  # Price after discount, before tax
+    unit_price_with_tax: Optional[float] = None  # Price after discount and tax
+    total_item_cost: Optional[float] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -473,10 +478,11 @@ class QuotationItemResponse(QuotationItemBase):
 # Quotation Item Attribute Schemas
 class QuotationItemAttributeBase(BaseModel):
     quotation_item_id: int
+    quotation_item_nested_attribute_id: Optional[int] = None
     attribute_id: int
     selected_option_id: Optional[int] = None
     double_side: bool = False
-    direct_cost: Optional[Decimal] = Field(None, description="Direct cost entered by user for this attribute")
+    direct_cost: Optional[float] = None
 
 
 class QuotationItemAttributeCreate(QuotationItemAttributeBase):
@@ -486,32 +492,48 @@ class QuotationItemAttributeCreate(QuotationItemAttributeBase):
 
 class QuotationItemAttributeUpdate(QuotationItemAttributeBase):
     quotation_item_id: Optional[int] = None
+    quotation_item_nested_attribute_id: Optional[int] = None
     attribute_id: Optional[int] = None
     double_side: Optional[bool] = None
-    direct_cost: Optional[Decimal] = None
+    direct_cost: Optional[float] = None
 
 
 class QuotationItemAttributeResponse(QuotationItemAttributeBase):
     id: int
+    quotation_item_nested_attribute: Optional["QuotationItemNestedAttributeResponse"] = None
     attribute: "AttributeShortResponse"
     selected_option: Optional["AttributeOptionResponse"] = None
     unit_values: List["UnitValueResponse"] = None
-    calculated_cost: Optional[Decimal] = None
-    total_attribute_cost: Optional[Decimal] = None
-    created_by: Optional[str] = None
-    updated_by: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    calculated_cost: Optional[float] = None
+    total_attribute_cost: Optional[float] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class QuotationItemNestedAttributeCreate(BaseModel):
+    nested_attribute_id: int
+    attributes: Optional[List["QuotationItemAttributeCreate"]] = None
+
+
+class QuotationItemNestedAttributeResponse(BaseModel):
+    id: int
+    nested_attribute: Optional["NestedAttributeShortResponse"] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
 
     
 class UnitValueBase(BaseModel):
     quotation_item_attribute_id: int
     unit_id: int
-    value1: Optional[Decimal] = Field(None, description="Value1 with up to 2 decimal places")
-    value2: Optional[Decimal] = Field(None, description="Value2 with up to 2 decimal places")
+    value1: Optional[float] = None
+    value2: Optional[float] = None
 
 
 class UnitValueCreate(UnitValueBase):
@@ -521,8 +543,8 @@ class UnitValueCreate(UnitValueBase):
 class UnitValueUpdate(UnitValueBase):
     quotation_item_attribute_id: Optional[int] = None
     unit_id: Optional[int] = None
-    value1: Optional[Decimal] = None
-    value2: Optional[Decimal] = None
+    value1: Optional[float] = None
+    value2: Optional[float] = None
 
 
 class UnitValueResponse(UnitValueBase):
@@ -553,18 +575,66 @@ class PaginatedResponse(BaseModel):
     pages: int
 
 
-class NestedAttributeListResponse(BaseModel):
-    """Lightweight response for nested attribute list views"""
-    id: int
-    parent_attribute_id: int
-    child_attribute_id: int
-    relationship_order: int
-    is_active: bool
-    parent_attribute: AttributeListResponse
-    child_attribute: AttributeListResponse
+# ============================================================================
+# 5. PAGINATION RESPONSE SCHEMAS WITH INHERITANCE
+# ============================================================================
 
-    class Config:
-        from_attributes = True
+class PaginatedDoorTypeResponse(BaseModel):
+    data: List["DoorTypeResponse"]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class PaginatedAttributeResponse(BaseModel):
+    data: List["AttributeResponse"]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class PaginatedNestedAttributeResponse(BaseModel):
+    data: List["NestedAttributeResponse"]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class PaginatedUnitResponse(BaseModel):
+    data: List["UnitResponse"]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class PaginatedCustomerResponse(BaseModel):
+    data: List["CustomerResponse"]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class PaginatedQuotationShortResponse(BaseModel):
+    data: List["QuotationShortResponse"]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class PaginatedEmployeeResponse(BaseModel):
+    data: List["EmployeeResponse"]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
 
 # ============================================================================
 # FORWARD REFERENCE RESOLUTION

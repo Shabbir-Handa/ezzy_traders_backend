@@ -11,7 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from dependencies import engine
 from db_helper.models import Base
-from routers import employees, auth, door_attribute, customer_quotation, cost_analysis
+from routers import employees, auth, door_attribute, customer_quotation
 
 
 # ============================================================================
@@ -86,7 +86,6 @@ app.include_router(auth.router)
 app.include_router(employees.router)
 app.include_router(door_attribute.router)
 app.include_router(customer_quotation.router)
-app.include_router(cost_analysis.router)
 
 
 # ============================================================================

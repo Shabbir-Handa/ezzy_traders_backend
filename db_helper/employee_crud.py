@@ -6,7 +6,7 @@ Simplified employee management without complex role-permission systems
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timezone
-
+from fastapi import HTTPException, status
 from db_helper.models import Employee
 from schemas.schemas import (
     EmployeeCreate, EmployeeUpdate, EmployeeResponse
@@ -30,7 +30,7 @@ class EmployeeCRUD:
             updated_by=username
         )
         db.add(employee)
-        db.commit()
+        db.flush()
         return employee
 
     @staticmethod
@@ -42,14 +42,13 @@ class EmployeeCRUD:
         return db.query(Employee).offset(skip).limit(limit).all()
 
     @staticmethod
-    def get_active_employees(db: Session) -> List[EmployeeResponse]:
-        return db.query(Employee).filter(Employee.is_active == True).all()
-
-    @staticmethod
     def update_employee(db: Session, employee_id: int, data: EmployeeUpdate, username: str = None) -> Optional[EmployeeResponse]:
         employee = db.get(Employee, employee_id)
         if not employee:
-            return None
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee not found"
+            )
 
         update_data = data.dict(exclude_unset=True)
         
@@ -63,18 +62,20 @@ class EmployeeCRUD:
         employee.updated_by = username
         employee.updated_at = datetime.now(timezone.utc)
 
-        db.commit()
+        db.flush()
         return employee
 
     @staticmethod
     def delete_employee(db: Session, employee_id: int) -> bool:
         employee = db.get(Employee, employee_id)
         if not employee:
-            return False
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee not found"
+            )
         
-        # Soft delete - just mark as inactive
-        employee.is_active = False
-        db.commit()
+        db.delete(employee)
+        db.flush()
         return True
 
     @staticmethod
@@ -82,39 +83,17 @@ class EmployeeCRUD:
         """Authenticate an employee by username and password"""
         employee = db.query(Employee).filter(Employee.username == username).first()
         if not employee:
-            return None
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee not found"
+            )
         
         if not verify_password(password, employee.hashed_password):
-            return None
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid password"
+            )
         
-        return employee
-
-    @staticmethod
-    def activate_employee(db: Session, employee_id: int, username: str = None) -> Optional[EmployeeResponse]:
-        """Activate an employee account"""
-        employee = db.get(Employee, employee_id)
-        if not employee:
-            return None
-        
-        employee.is_active = True
-        employee.updated_by = username
-        employee.updated_at = datetime.now(timezone.utc)
-        
-        db.commit()
-        return employee
-
-    @staticmethod
-    def deactivate_employee(db: Session, employee_id: int, username: str = None) -> Optional[EmployeeResponse]:
-        """Deactivate an employee account"""
-        employee = db.get(Employee, employee_id)
-        if not employee:
-            return None
-        
-        employee.is_active = False
-        employee.updated_by = username
-        employee.updated_at = datetime.now(timezone.utc)
-        
-        db.commit()
         return employee
 
     @staticmethod
@@ -122,19 +101,18 @@ class EmployeeCRUD:
         """Change an employee's role"""
         employee = db.get(Employee, employee_id)
         if not employee:
-            return None
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee not found"
+            )
         
         employee.role = new_role
         employee.updated_by = username
         employee.updated_at = datetime.now(timezone.utc)
         
-        db.commit()
+        db.flush()
         return employee
 
     @staticmethod
-    def get_employee_count(db: Session, active_only: bool = True) -> int:
-        """Get total count of employees"""
-        query = db.query(Employee)
-        if active_only:
-            query = query.filter(Employee.is_active == True)
-        return query.count()
+    def get_employee_count(db: Session) -> int:
+        return db.query(Employee).count()

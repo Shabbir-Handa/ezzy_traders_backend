@@ -11,9 +11,11 @@ from dependencies import get_db, get_current_user
 from db_helper.customer_quotation_crud import CustomerQuotationCRUD
 from schemas.schemas import (
     CustomerCreate, CustomerUpdate, CustomerResponse,
-    QuotationCreate, QuotationUpdate, QuotationResponse,
+    QuotationCreate, QuotationUpdate, QuotationResponse, QuotationShortResponse,
     QuotationItemCreate, QuotationItemUpdate, QuotationItemResponse,
     QuotationItemAttributeCreate, QuotationItemAttributeUpdate, QuotationItemAttributeResponse,
+    QuotationItemNestedAttributeCreate, QuotationItemNestedAttributeResponse,
+    PaginatedCustomerResponse, PaginatedQuotationShortResponse
 )
 
 router = APIRouter(
@@ -35,49 +37,45 @@ def create_customer(
     """Create a new customer"""
     try:
         customer = CustomerQuotationCRUD.create_customer(db, customer_data, current_user.username)
+        db.commit()
         return customer
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
         )
 
 
-@router.get("/customers")
+@router.get("/customers", response_model=PaginatedCustomerResponse)
 def get_customers(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
-        active_only: bool = Query(False),
-        search: Optional[str] = Query(None),
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
     """Get all customers with pagination and optional search"""
     try:
-        if search:
-            customers = CustomerQuotationCRUD.search_customers(db, search)
-            total = len(customers)
-        elif active_only:
-            customers = CustomerQuotationCRUD.get_active_customers(db)
-            total = len(customers)
-        else:
-            customers = CustomerQuotationCRUD.get_all_customers(db, skip=skip, limit=limit)
-            total = CustomerQuotationCRUD.count_customers(db)
+        customers = CustomerQuotationCRUD.get_all_customers(db, skip=skip, limit=limit)
+        total = CustomerQuotationCRUD.count_customers(db)
         
-        return {
-            "data": customers,
-            "total": total,
-            "page": (skip // limit) + 1 if limit > 0 else 1,
-            "size": limit,
-            "pages": (total + limit - 1) // limit if limit > 0 else 1
-        }
+        data = [CustomerResponse.model_validate(c, from_attributes=True).model_dump() for c in customers]
+        return PaginatedCustomerResponse(
+            data=data,
+            total=total,
+            page=(skip // limit) + 1 if limit > 0 else 1,
+            size=limit,
+            pages=(total + limit - 1) // limit if limit > 0 else 1
+        )
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -134,15 +132,19 @@ def update_customer(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Customer not found"
             )
+        db.commit()
         return customer
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -163,14 +165,18 @@ def delete_customer(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Customer not found"
             )
+        db.commit()
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -190,27 +196,30 @@ def create_quotation(
     """Create a new quotation"""
     try:
         quotation = CustomerQuotationCRUD.create_quotation(db, quotation_data, current_user.username)
+        db.commit()
         return quotation
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
         )
 
 
-@router.get("/quotations")
+@router.get("/quotations", response_model=PaginatedQuotationShortResponse)
 def get_quotations(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
         customer_id: Optional[int] = Query(None),
-        status_quot: Optional[str] = Query(None),
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
@@ -219,20 +228,18 @@ def get_quotations(
         if customer_id:
             quotations = CustomerQuotationCRUD.get_quotations_by_customer(db, customer_id)
             total = len(quotations)
-        elif status_quot:
-            quotations = CustomerQuotationCRUD.get_quotations_by_status(db, status_quot)
-            total = len(quotations)
         else:
             quotations = CustomerQuotationCRUD.get_all_quotations(db, skip=skip, limit=limit)
             total = CustomerQuotationCRUD.count_quotations(db)
         
-        return {
-            "data": quotations,
-            "total": total,
-            "page": (skip // limit) + 1 if limit > 0 else 1,
-            "size": limit,
-            "pages": (total + limit - 1) // limit if limit > 0 else 1
-        }
+        data = [QuotationShortResponse.model_validate(q, from_attributes=True).model_dump() for q in quotations]
+        return PaginatedQuotationShortResponse(
+            data=data,
+            total=total,
+            page=(skip // limit) + 1 if limit > 0 else 1,
+            size=limit,
+            pages=(total + limit - 1) // limit if limit > 0 else 1
+        )
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -274,6 +281,39 @@ def get_quotation(
         )
 
 
+@router.post("/quotations/{quotation_id}/recalculate", response_model=QuotationResponse)
+def recalculate_quotation_costs(
+        quotation_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Recalculate all costs for a quotation"""
+    try:
+        quotation = CustomerQuotationCRUD.recalculate_quotation_costs(db, quotation_id)
+        if not quotation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Quotation not found"
+            )
+        db.commit()
+        return quotation
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
 @router.put("/quotations/{quotation_id}", response_model=QuotationResponse)
 def update_quotation(
         quotation_id: int,
@@ -289,15 +329,19 @@ def update_quotation(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Quotation not found"
             )
+        db.commit()
         return quotation
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -318,48 +362,22 @@ def delete_quotation(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Quotation not found"
             )
+        db.commit()
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
         )
-
-
-@router.get("/quotations/{quotation_id}/summary")
-def get_quotation_summary(
-        quotation_id: int,
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
-):
-    """Get quotation summary with totals"""
-    try:
-        summary = CustomerQuotationCRUD.get_quotation_summary(db, quotation_id)
-        if not summary:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Quotation not found"
-            )
-        return summary
-    except HTTPException:
-        raise
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database service unavailable: {e}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {e}"
-        )
-
 
 # ============================================================================
 # QUOTATION ITEM ENDPOINTS
@@ -374,15 +392,19 @@ def create_quotation_item(
     """Create a new quotation item"""
     try:
         quotation_item = CustomerQuotationCRUD.create_quotation_item(db, item_data, current_user.username)
+        db.commit()
         return quotation_item
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -455,15 +477,19 @@ def update_quotation_item(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Quotation item not found"
             )
+        db.commit()
         return item
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -484,14 +510,18 @@ def delete_quotation_item(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Quotation item not found"
             )
+        db.commit()
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -512,15 +542,19 @@ def create_quotation_item_attribute(
     """Create a new quotation item attribute"""
     try:
         attribute = CustomerQuotationCRUD.create_quotation_item_attribute(db, attribute_data, current_user.username)
+        db.commit()
         return attribute
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -594,15 +628,19 @@ def update_quotation_item_attribute(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Quotation item attribute not found"
             )
+        db.commit()
         return attribute
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -623,6 +661,71 @@ def delete_quotation_item_attribute(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Quotation item attribute not found"
             )
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+# ============================================================================
+# QUOTATION ITEM NESTED ATTRIBUTE ENDPOINTS
+# ============================================================================
+
+@router.post("/quotation-item-nested-attributes", response_model=QuotationItemNestedAttributeResponse, status_code=status.HTTP_201_CREATED)
+def create_quotation_item_nested_attribute(
+        quotation_item_nested_attribute_data: QuotationItemNestedAttributeCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Create a new quotation item nested attribute"""
+    try:
+        quotation_item_nested_attribute = CustomerQuotationCRUD.create_quotation_item_nested_attribute(db, quotation_item_nested_attribute_data, current_user.username)
+        db.commit()
+        return quotation_item_nested_attribute
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.get("/quotation-item-nested-attributes/{nested_attribute_id}", response_model=QuotationItemNestedAttributeResponse)
+def get_quotation_item_nested_attribute(
+        nested_attribute_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Get a specific quotation item nested attribute by ID"""
+    try:
+        quotation_item_nested_attribute = CustomerQuotationCRUD.get_quotation_item_nested_attribute_by_id(db, nested_attribute_id)
+        if not quotation_item_nested_attribute:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Quotation item nested attribute not found"
+            )
+        return quotation_item_nested_attribute
     except HTTPException:
         raise
     except SQLAlchemyError as e:
@@ -631,6 +734,94 @@ def delete_quotation_item_attribute(
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.get("/quotation-items/{quotation_item_id}/nested-attributes", response_model=List[QuotationItemNestedAttributeResponse])
+def get_quotation_item_nested_attributes_by_item(
+        quotation_item_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Get all nested attributes for a specific quotation item"""
+    try:
+        quotation_item_nested_attributes = CustomerQuotationCRUD.get_quotation_item_nested_attributes_by_item(db, quotation_item_id)
+        return quotation_item_nested_attributes
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.put("/quotation-item-nested-attributes/{nested_attribute_id}", response_model=QuotationItemNestedAttributeResponse)
+def update_quotation_item_nested_attribute(
+        nested_attribute_id: int,
+        quotation_item_nested_attribute_data: dict,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Update a quotation item nested attribute"""
+    try:
+        quotation_item_nested_attribute = CustomerQuotationCRUD.update_quotation_item_nested_attribute(db, nested_attribute_id, quotation_item_nested_attribute_data, current_user.username)
+        if not quotation_item_nested_attribute:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Quotation item nested attribute not found"
+            )
+        db.commit()
+        return quotation_item_nested_attribute
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.delete("/quotation-item-nested-attributes/{nested_attribute_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_quotation_item_nested_attribute(
+        nested_attribute_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Delete a quotation item nested attribute (soft delete)"""
+    try:
+        success = CustomerQuotationCRUD.delete_quotation_item_nested_attribute(db, nested_attribute_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Quotation item nested attribute not found"
+            )
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"

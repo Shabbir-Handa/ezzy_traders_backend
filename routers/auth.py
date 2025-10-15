@@ -37,12 +37,6 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if not employee.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive employee account"
-        )
-
     # Create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -71,12 +65,6 @@ async def login_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not employee.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive employee account"
         )
 
     # Create access token
@@ -111,8 +99,7 @@ async def get_current_user_info(
         "email": current_user.email,
         "first_name": current_user.first_name,
         "last_name": current_user.last_name,
-        "role": current_user.role,
-        "is_active": current_user.is_active
+        "role": current_user.role
     }
 
 

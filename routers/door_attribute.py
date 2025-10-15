@@ -12,11 +12,14 @@ from db_helper.door_attribute_crud import DoorAttributeCRUD
 from schemas.schemas import (
     DoorTypeCreate, DoorTypeUpdate, DoorTypeResponse,
     AttributeCreate, AttributeUpdate, AttributeResponse,
-    EntityAttributeCreate, EntityAttributeUpdate, EntityAttributeResponse,
+    DoorTypeAttributeCreate, DoorTypeAttributeUpdate, DoorTypeAttributeResponse,
     AttributeOptionCreate, AttributeOptionUpdate, AttributeOptionResponse,
     NestedAttributeCreate, NestedAttributeUpdate, NestedAttributeResponse,
+    NestedAttributeChildCreate, NestedAttributeChildUpdate, NestedAttributeChildResponse,
     UnitCreate, UnitUpdate, UnitResponse,
-    DoorTypeThicknessOptionCreate, DoorTypeThicknessOptionUpdate, DoorTypeThicknessOptionResponse
+    DoorTypeThicknessOptionCreate, DoorTypeThicknessOptionUpdate, DoorTypeThicknessOptionResponse,
+    PaginatedDoorTypeResponse, PaginatedAttributeResponse, PaginatedNestedAttributeResponse,
+    PaginatedUnitResponse
 )
 
 router = APIRouter(
@@ -37,57 +40,46 @@ def create_door_type(
 ):
     """Create a new door type"""
     try:
-        # Check if door type name already exists
-        existing_door_type = DoorAttributeCRUD.get_door_type_by_name(db, door_type_data.name)
-        if existing_door_type:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Door type with this name already exists"
-            )
-
         door_type = DoorAttributeCRUD.create_door_type(db, door_type_data, current_user.username)
+        db.commit()
         return door_type
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
         )
 
 
-@router.get("/door-types")
+@router.get("/door-types", response_model=PaginatedDoorTypeResponse)
 def get_door_types(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
-        active_only: bool = Query(False),
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
     """Get all door types with pagination"""
     try:
-        if active_only:
-            door_types = DoorAttributeCRUD.get_active_door_types(db)
-            total = len(door_types)
-        else:
-            door_types = DoorAttributeCRUD.get_all_door_types(db, skip=skip, limit=limit)
-            total = DoorAttributeCRUD.count_door_types(db)
+        door_types = DoorAttributeCRUD.get_all_door_types(db, skip=skip, limit=limit)
+        total = DoorAttributeCRUD.count_door_types(db)
 
-        # Serialize to plain dicts via Pydantic to avoid raw SA models in paginated wrapper
         data = [DoorTypeResponse.model_validate(dt, from_attributes=True).model_dump() for dt in door_types]
-        payload = {
-            "data": data,
-            "total": total,
-            "page": (skip // limit) + 1 if limit > 0 else 1,
-            "size": limit,
-            "pages": (total + limit - 1) // limit if limit > 0 else 1
-        }
-        return payload
+        return PaginatedDoorTypeResponse(
+            data=data,
+            total=total,
+            page=(skip // limit) + 1 if limit > 0 else 1,
+            size=limit,
+            pages=(total + limit - 1) // limit if limit > 0 else 1
+        )
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -144,15 +136,19 @@ def update_door_type(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Door type not found"
             )
+        db.commit()
         return door_type
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -165,7 +161,6 @@ def delete_door_type(
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
-    """Delete a door type (soft delete)"""
     try:
         success = DoorAttributeCRUD.delete_door_type(db, door_type_id)
         if not success:
@@ -173,6 +168,69 @@ def delete_door_type(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Door type not found"
             )
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+# ============================================================================
+# DOOR TYPE THICKNESS OPTION ENDPOINTS
+# ============================================================================
+
+@router.post("/door-type-thickness-options", response_model=DoorTypeThicknessOptionResponse, status_code=status.HTTP_201_CREATED)
+def create_door_type_thickness_option(
+        thickness_option_data: DoorTypeThicknessOptionCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Create a new door type thickness option"""
+    try:
+        thickness_option = DoorAttributeCRUD.create_door_type_thickness_option(db, thickness_option_data, current_user.username)
+        db.commit()
+        return thickness_option
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.get("/door-type-thickness-options/{thickness_option_id}", response_model=DoorTypeThicknessOptionResponse)
+def get_door_type_thickness_option(
+        thickness_option_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Get a specific door type thickness option by ID"""
+    try:
+        thickness_option = DoorAttributeCRUD.get_door_type_thickness_option_by_id(db, thickness_option_id)
+        if not thickness_option:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Door type thickness option not found"
+            )
+        return thickness_option
     except HTTPException:
         raise
     except SQLAlchemyError as e:
@@ -187,9 +245,219 @@ def delete_door_type(
         )
 
 
+@router.put("/door-type-thickness-options/{thickness_option_id}", response_model=DoorTypeThicknessOptionResponse)
+def update_door_type_thickness_option(
+        thickness_option_id: int,
+        thickness_option_data: DoorTypeThicknessOptionUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Update a door type thickness option"""
+    try:
+        thickness_option = DoorAttributeCRUD.update_door_type_thickness_option(db, thickness_option_id, thickness_option_data, current_user.username)
+        if not thickness_option:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Door type thickness option not found"
+            )
+        db.commit()
+        return thickness_option
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.delete("/door-type-thickness-options/{thickness_option_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_door_type_thickness_option(
+        thickness_option_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Delete a door type thickness option"""
+    try:
+        success = DoorAttributeCRUD.delete_door_type_thickness_option(db, thickness_option_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Door type thickness option not found"
+            )
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
 # ============================================================================
-# ATTRIBUTE ENDPOINTS
+# DOOR TYPE ATTRIBUTE ENDPOINTS
 # ============================================================================
+
+@router.post("/door-type-attributes", response_model=DoorTypeAttributeResponse, status_code=status.HTTP_201_CREATED)
+def create_door_type_attribute(
+        door_type_attribute_data: DoorTypeAttributeCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Create a new door type attribute relationship"""
+    try:
+        door_type_attribute = DoorAttributeCRUD.create_door_type_attribute(db, door_type_attribute_data, current_user.username)
+        db.commit()
+        return door_type_attribute
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.get("/door-type-attributes/{door_type_attribute_id}", response_model=DoorTypeAttributeResponse)
+def get_door_type_attribute(
+        door_type_attribute_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Get a specific door type attribute by ID"""
+    try:
+        door_type_attribute = DoorAttributeCRUD.get_door_type_attribute_by_id(db, door_type_attribute_id)
+        if not door_type_attribute:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Door type attribute not found"
+            )
+        return door_type_attribute
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.get("/door-types/{door_type_id}/attributes", response_model=List[DoorTypeAttributeResponse])
+def get_door_type_attributes_by_door_type(
+        door_type_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Get all attributes for a specific door type"""
+    try:
+        door_type_attributes = DoorAttributeCRUD.get_door_type_attributes_by_door_type(db, door_type_id)
+        return door_type_attributes
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.put("/door-type-attributes/{door_type_attribute_id}", response_model=DoorTypeAttributeResponse)
+def update_door_type_attribute(
+        door_type_attribute_id: int,
+        door_type_attribute_data: DoorTypeAttributeUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Update a door type attribute"""
+    try:
+        door_type_attribute = DoorAttributeCRUD.update_door_type_attribute(db, door_type_attribute_id, door_type_attribute_data, current_user.username)
+        if not door_type_attribute:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Door type attribute not found"
+            )
+        db.commit()
+        return door_type_attribute
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.delete("/door-type-attributes/{door_type_attribute_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_door_type_attribute(
+        door_type_attribute_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Delete a door type attribute"""
+    try:
+        success = DoorAttributeCRUD.delete_door_type_attribute(db, door_type_attribute_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Door type attribute not found"
+            )
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
 
 @router.post("/attributes", response_model=AttributeResponse, status_code=status.HTTP_201_CREATED)
 def create_attribute(
@@ -199,22 +467,17 @@ def create_attribute(
 ):
     """Create a new attribute"""
     try:
-        # Check if attribute name already exists
-        existing_attribute = DoorAttributeCRUD.get_attribute_by_name(db, attribute_data.name)
-        if existing_attribute:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Attribute with this name already exists"
-            )
-
         attribute = DoorAttributeCRUD.create_attribute(db, attribute_data, current_user.username)
+        db.commit()
         return attribute
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
         raise HTTPException(
@@ -223,36 +486,26 @@ def create_attribute(
         )
 
 
-@router.get("/attributes", response_model=Dict[str, Any])
+@router.get("/attributes", response_model=PaginatedAttributeResponse)
 def get_attributes(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
-        domain: Optional[str] = Query(None),
-        active_only: bool = Query(False),
-        exclude_nested: bool = Query(True, description="Exclude nested-type attributes from list"),
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
     """Get all attributes with pagination and optional domain filtering"""
     try:
-        if domain:
-            attributes = DoorAttributeCRUD.get_attributes_by_domain(db, domain)
-            total = len(attributes)
-        elif active_only:
-            attributes = DoorAttributeCRUD.get_active_attributes(db)
-            total = len(attributes)
-        else:
-            attributes = DoorAttributeCRUD.get_all_attributes(db, skip=skip, limit=limit, exclude_nested=exclude_nested)
-            total = DoorAttributeCRUD.count_attributes(db, exclude_nested=exclude_nested)
+        attributes = DoorAttributeCRUD.get_all_attributes(db, skip=skip, limit=limit)
+        total = DoorAttributeCRUD.count_attributes(db)
 
         data = [AttributeResponse.model_validate(a, from_attributes=True).model_dump() for a in attributes]
-        return {
-            "data": data,
-            "total": total,
-            "page": (skip // limit) + 1 if limit > 0 else 1,
-            "size": limit,
-            "pages": (total + limit - 1) // limit if limit > 0 else 1
-        }
+        return PaginatedAttributeResponse(
+            data=data,
+            total=total,
+            page=(skip // limit) + 1 if limit > 0 else 1,
+            size=limit,
+            pages=(total + limit - 1) // limit if limit > 0 else 1
+        )
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -309,15 +562,19 @@ def update_attribute(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Attribute not found"
             )
+        db.commit()
         return attribute
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -338,163 +595,18 @@ def delete_attribute(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Attribute not found"
             )
+        db.commit()
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {e}"
-        )
-
-
-# ============================================================================
-# ENTITY ATTRIBUTE ENDPOINTS
-# ============================================================================
-
-@router.post("/entity-attributes", response_model=EntityAttributeResponse, status_code=status.HTTP_201_CREATED)
-def create_entity_attribute(
-        entity_attribute_data: EntityAttributeCreate,
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
-):
-    """Create a new entity attribute relationship"""
-    try:
-        entity_attribute = DoorAttributeCRUD.create_entity_attribute(db, entity_attribute_data, current_user.username)
-        return entity_attribute
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database service unavailable: {e}"
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {e}"
-        )
-
-
-@router.get("/entity-attributes", response_model=List[EntityAttributeResponse])
-def get_entity_attributes(
-        entity_type: Optional[str] = Query(None),
-        entity_id: Optional[int] = Query(None),
-        skip: int = Query(0, ge=0),
-        limit: int = Query(100, ge=1, le=1000),
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
-):
-    """Get entity attributes with optional filtering by entity type and entity id"""
-    try:
-        if entity_type and entity_id:
-            # Get attributes for specific entity type and id
-            entity_attributes = DoorAttributeCRUD.get_entity_attributes_by_entity(db, entity_type, entity_id)
-        elif entity_type:
-            # Get all attributes for a specific entity type
-            entity_attributes = DoorAttributeCRUD.get_entity_attributes_by_entity_type(db, entity_type, skip=skip, limit=limit)
-        else:
-            # Get all entity attributes
-            entity_attributes = DoorAttributeCRUD.get_all_entity_attributes(db, skip=skip, limit=limit)
-        return entity_attributes
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database service unavailable: {e}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {e}"
-        )
-
-
-@router.get("/entity-attributes/{entity_attribute_id}", response_model=EntityAttributeResponse)
-def get_entity_attribute(
-        entity_attribute_id: int,
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
-):
-    """Get a specific entity attribute by ID"""
-    try:
-        entity_attribute = DoorAttributeCRUD.get_entity_attribute_by_id(db, entity_attribute_id)
-        if not entity_attribute:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Entity attribute not found"
-            )
-        return entity_attribute
-    except HTTPException:
-        raise
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database service unavailable: {e}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {e}"
-        )
-
-
-@router.put("/entity-attributes/{entity_attribute_id}", response_model=EntityAttributeResponse)
-def update_entity_attribute(
-        entity_attribute_id: int,
-        entity_attribute_data: EntityAttributeUpdate,
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
-):
-    """Update an entity attribute"""
-    try:
-        entity_attribute = DoorAttributeCRUD.update_entity_attribute(db, entity_attribute_id, entity_attribute_data,
-                                                                     current_user.username)
-        if not entity_attribute:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Entity attribute not found"
-            )
-        return entity_attribute
-    except HTTPException:
-        raise
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database service unavailable: {e}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {e}"
-        )
-
-
-@router.delete("/entity-attributes/{entity_attribute_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_entity_attribute(
-        entity_attribute_id: int,
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
-):
-    """Delete an entity attribute (soft delete)"""
-    try:
-        success = DoorAttributeCRUD.delete_entity_attribute(db, entity_attribute_id)
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Entity attribute not found"
-            )
-    except HTTPException:
-        raise
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database service unavailable: {e}"
-        )
-    except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -514,13 +626,16 @@ def create_attribute_option(
     """Create a new attribute option"""
     try:
         attribute_option = DoorAttributeCRUD.create_attribute_option(db, attribute_option_data, current_user.username)
+        db.commit()
         return attribute_option
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
         raise HTTPException(
@@ -596,15 +711,19 @@ def update_attribute_option(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Attribute option not found"
             )
+        db.commit()
         return attribute_option
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -625,14 +744,18 @@ def delete_attribute_option(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Attribute option not found"
             )
+        db.commit()
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -652,13 +775,16 @@ def create_nested_attribute(
     """Create a new nested attribute"""
     try:
         nested_attribute = DoorAttributeCRUD.create_nested_attribute(db, nested_attribute_data, current_user.username)
+        db.commit()
         return nested_attribute
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
         raise HTTPException(
@@ -667,15 +793,26 @@ def create_nested_attribute(
         )
 
 
-@router.get("/nested-attributes")
+@router.get("/nested-attributes", response_model=PaginatedNestedAttributeResponse)
 def get_all_nested_attributes(
         db: Session = Depends(get_db),
+        skip: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=1000),
         current_user=Depends(get_current_user)
 ):
     """Get all nested attributes"""
     try:
-        grouped = DoorAttributeCRUD.get_grouped_nested_attributes(db)
-        return {"data": grouped, "total": len(grouped), "page": 1, "size": len(grouped), "pages": 1}
+        nested_attributes = DoorAttributeCRUD.get_all_nested_attributes(db)
+        total = DoorAttributeCRUD.count_nested_attributes(db)
+
+        data = [NestedAttributeResponse.model_validate(a, from_attributes=True).model_dump() for a in nested_attributes]
+        return PaginatedNestedAttributeResponse(
+            data=data,
+            total=total,
+            page=(skip // limit) + 1 if limit > 0 else 1,
+            size=limit,
+            pages=(total + limit - 1) // limit if limit > 0 else 1
+        )
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -733,15 +870,19 @@ def update_nested_attribute(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Nested attribute not found"
             )
+        db.commit()
         return nested_attribute
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -762,6 +903,93 @@ def delete_nested_attribute(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Nested attribute not found"
             )
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+# ============================================================================
+# NESTED ATTRIBUTE CHILD ENDPOINTS
+# ============================================================================
+
+@router.post("/nested-attribute-children", response_model=NestedAttributeChildResponse, status_code=status.HTTP_201_CREATED)
+def create_nested_attribute_child(
+        nested_attribute_child_data: NestedAttributeChildCreate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Create a new nested attribute child"""
+    try:
+        nested_attribute_child = DoorAttributeCRUD.create_nested_attribute_child(db, nested_attribute_child_data, current_user.username)
+        db.commit()
+        return nested_attribute_child
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.get("/nested-attributes/{nested_attribute_id}/children", response_model=List[NestedAttributeChildResponse])
+def get_nested_attribute_children_by_nested_attribute(
+        nested_attribute_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Get all children for a specific nested attribute"""
+    try:
+        nested_attribute_children = DoorAttributeCRUD.get_nested_attribute_children_by_nested_attribute(db, nested_attribute_id)
+        return nested_attribute_children
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.get("/nested-attribute-children/{nested_attribute_child_id}", response_model=NestedAttributeChildResponse)
+def get_nested_attribute_child(
+        nested_attribute_child_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Get a specific nested attribute child by ID"""
+    try:
+        nested_attribute_child = DoorAttributeCRUD.get_nested_attribute_child_by_id(db, nested_attribute_child_id)
+        if not nested_attribute_child:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Nested attribute child not found"
+            )
+        return nested_attribute_child
     except HTTPException:
         raise
     except SQLAlchemyError as e:
@@ -776,9 +1004,70 @@ def delete_nested_attribute(
         )
 
 
-# ============================================================================
-# UNIT ENDPOINTS
-# ============================================================================
+@router.put("/nested-attribute-children/{nested_attribute_child_id}", response_model=NestedAttributeChildResponse)
+def update_nested_attribute_child(
+        nested_attribute_child_id: int,
+        nested_attribute_child_data: NestedAttributeChildUpdate,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Update a nested attribute child"""
+    try:
+        nested_attribute_child = DoorAttributeCRUD.update_nested_attribute_child(db, nested_attribute_child_id, nested_attribute_child_data, current_user.username)
+        if not nested_attribute_child:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Nested attribute child not found"
+            )
+        db.commit()
+        return nested_attribute_child
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
+
+
+@router.delete("/nested-attribute-children/{nested_attribute_child_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_nested_attribute_child(
+        nested_attribute_child_id: int,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Delete a nested attribute child"""
+    try:
+        success = DoorAttributeCRUD.delete_nested_attribute_child(db, nested_attribute_child_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Nested attribute child not found"
+            )
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database service unavailable: {e}"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )
 
 @router.post("/units", response_model=UnitResponse, status_code=status.HTTP_201_CREATED)
 def create_unit(
@@ -788,22 +1077,17 @@ def create_unit(
 ):
     """Create a new unit"""
     try:
-        # Check if unit name already exists
-        existing_unit = DoorAttributeCRUD.get_unit_by_name(db, unit_data.name)
-        if existing_unit:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Unit with this name already exists"
-            )
-
         unit = DoorAttributeCRUD.create_unit(db, unit_data, current_user.username)
+        db.commit()
         return unit
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
         raise HTTPException(
@@ -812,31 +1096,26 @@ def create_unit(
         )
 
 
-@router.get("/units")
+@router.get("/units", response_model=PaginatedUnitResponse)
 def get_units(
         skip: int = Query(0, ge=0),
         limit: int = Query(100, ge=1, le=1000),
-        active_only: bool = Query(False),
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
     """Get all units with pagination"""
     try:
-        if active_only:
-            units = DoorAttributeCRUD.get_active_units(db)
-            total = len(units)
-        else:
-            units = DoorAttributeCRUD.get_all_units(db, skip=skip, limit=limit)
-            total = DoorAttributeCRUD.count_units(db)
+        units = DoorAttributeCRUD.get_all_units(db, skip=skip, limit=limit)
+        total = DoorAttributeCRUD.count_units(db)
 
         data = [UnitResponse.model_validate(u, from_attributes=True).model_dump() for u in units]
-        return {
-            "data": data,
-            "total": total,
-            "page": (skip // limit) + 1 if limit > 0 else 1,
-            "size": limit,
-            "pages": (total + limit - 1) // limit if limit > 0 else 1
-        }
+        return PaginatedUnitResponse(
+            data=data,
+            total=total,
+            page=(skip // limit) + 1 if limit > 0 else 1,
+            size=limit,
+            pages=(total + limit - 1) // limit if limit > 0 else 1
+        )
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -893,15 +1172,19 @@ def update_unit(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Unit not found"
             )
+        db.commit()
         return unit
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
@@ -922,159 +1205,18 @@ def delete_unit(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Unit not found"
             )
+        db.commit()
     except HTTPException:
+        db.rollback()
         raise
     except SQLAlchemyError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Database service unavailable: {e}"
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {e}"
-        )
-
-
-# ============================================================================
-# DOOR TYPE THICKNESS OPTION ENDPOINTS
-# ============================================================================
-
-@router.post("/door-type-thickness-options", response_model=DoorTypeThicknessOptionResponse, status_code=status.HTTP_201_CREATED)
-def create_door_type_thickness_option(
-        thickness_option_data: DoorTypeThicknessOptionCreate,
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
-):
-    """Create a new door type thickness option"""
-    try:
-        thickness_option = DoorAttributeCRUD.create_door_type_thickness_option(db, thickness_option_data, current_user.username)
-        return thickness_option
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database service unavailable: {e}"
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {e}"
-        )
-
-
-@router.get("/door-type-thickness-options", response_model=List[DoorTypeThicknessOptionResponse])
-def get_door_type_thickness_options(
-        door_type_id: Optional[int] = Query(None),
-        skip: int = Query(0, ge=0),
-        limit: int = Query(100, ge=1, le=1000),
-        active_only: bool = Query(False),
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
-):
-    """Get door type thickness options with optional filtering"""
-    try:
-        if door_type_id:
-            thickness_options = DoorAttributeCRUD.get_door_type_thickness_options_by_door_type(db, door_type_id)
-        elif active_only:
-            thickness_options = DoorAttributeCRUD.get_active_door_type_thickness_options(db)
-        else:
-            thickness_options = DoorAttributeCRUD.get_all_door_type_thickness_options(db, skip=skip, limit=limit)
-        return thickness_options
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database service unavailable: {e}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {e}"
-        )
-
-
-@router.get("/door-type-thickness-options/{thickness_option_id}", response_model=DoorTypeThicknessOptionResponse)
-def get_door_type_thickness_option(
-        thickness_option_id: int,
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
-):
-    """Get a specific door type thickness option by ID"""
-    try:
-        thickness_option = DoorAttributeCRUD.get_door_type_thickness_option_by_id(db, thickness_option_id)
-        if not thickness_option:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Door type thickness option not found"
-            )
-        return thickness_option
-    except HTTPException:
-        raise
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database service unavailable: {e}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {e}"
-        )
-
-
-@router.put("/door-type-thickness-options/{thickness_option_id}", response_model=DoorTypeThicknessOptionResponse)
-def update_door_type_thickness_option(
-        thickness_option_id: int,
-        thickness_option_data: DoorTypeThicknessOptionUpdate,
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
-):
-    """Update a door type thickness option"""
-    try:
-        thickness_option = DoorAttributeCRUD.update_door_type_thickness_option(db, thickness_option_id, thickness_option_data, current_user.username)
-        if not thickness_option:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Door type thickness option not found"
-            )
-        return thickness_option
-    except HTTPException:
-        raise
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database service unavailable: {e}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {e}"
-        )
-
-
-@router.delete("/door-type-thickness-options/{thickness_option_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_door_type_thickness_option(
-        thickness_option_id: int,
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
-):
-    """Delete a door type thickness option (soft delete)"""
-    try:
-        success = DoorAttributeCRUD.delete_door_type_thickness_option(db, thickness_option_id)
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Door type thickness option not found"
-            )
-    except HTTPException:
-        raise
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database service unavailable: {e}"
-        )
-    except Exception as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
