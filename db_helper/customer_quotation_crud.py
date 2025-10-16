@@ -124,7 +124,7 @@ class CustomerQuotationCRUD:
                 item.quotation_id = quotation.id
                 # Create quotation item with initial base costs
                 quotation_item = QuotationItem(
-                    **item.dict(exclude="attributes"),
+                    **item.dict(exclude={"attributes", "nested_attributes"}),
                     created_by=username,
                     updated_by=username,
                     base_cost_per_unit=base_cost_per_unit,
