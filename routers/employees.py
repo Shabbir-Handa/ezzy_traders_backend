@@ -183,3 +183,30 @@ def delete_employee(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
         )
+
+
+# ============================================================================
+# EMPLOYEE PASSWORD ENDPOINT
+# ============================================================================
+
+@router.post("/{employee_id}/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_employee_password(
+        employee_id: int,
+        data: dict,
+        db: Session = Depends(get_db),
+        current_user=Depends(get_current_user)
+):
+    """Change an employee's password"""
+    try:
+        new_password = data.get("password")
+        EmployeeCRUD.change_employee_password(db, employee_id, new_password, current_user.username)
+        db.commit()
+    except HTTPException as e:
+        db.rollback()
+        raise e
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        )

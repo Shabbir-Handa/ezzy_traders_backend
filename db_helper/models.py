@@ -14,7 +14,8 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, PrimaryKey
 from sqlalchemy.orm import relationship, foreign
 from sqlalchemy.ext.declarative import declarative_base
 from enum import Enum as PyEnum
-from datetime import date, datetime, timezone
+from datetime import date
+from time_utils import now_ist
 
 # SQLAlchemy Base declaration
 Base = declarative_base()
@@ -39,8 +40,8 @@ class Employee(Base):
 
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
 
 # ============================================================================
@@ -63,8 +64,8 @@ class Customer(Base):
     
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     quotations = relationship('Quotation', back_populates='customer')
 
@@ -89,8 +90,8 @@ class DoorType(Base):
     
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     # Many-to-many with Attribute via DoorTypeAttribute
     door_type_attributes = relationship('DoorTypeAttribute', back_populates='door_type', cascade="all, delete-orphan")
@@ -111,8 +112,8 @@ class DoorTypeThicknessOption(Base):
     
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     door_type = relationship('DoorType', back_populates='thickness_options')
     quotation_items = relationship('QuotationItem', back_populates='thickness_option')
@@ -135,13 +136,13 @@ class Attribute(Base):
     # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     options = relationship('AttributeOption', back_populates='attribute', cascade="all, delete-orphan")
     unit = relationship('Unit', back_populates='attributes')
     nested_attribute_child = relationship('NestedAttributeChild', back_populates='attribute', cascade="all, delete-orphan")
-    door_type_attribute = relationship('DoorTypeAttribute', back_populates='attributes', cascade="all, delete-orphan")
+    door_type_attribute = relationship('DoorTypeAttribute', back_populates='attribute', cascade="all, delete-orphan")
     quotation_item_attribute = relationship('QuotationItemAttribute', back_populates='attribute')
 
 
@@ -160,8 +161,8 @@ class AttributeOption(Base):
     # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     # Relationships
     attribute = relationship('Attribute', back_populates='options')
@@ -179,11 +180,11 @@ class NestedAttribute(Base):
     # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     nested_attribute_children = relationship('NestedAttributeChild', back_populates='nested_attribute', cascade="all, delete-orphan")
-    door_type_attribute = relationship('DoorTypeAttribute', back_populates='nested_attributes', cascade="all, delete-orphan")
+    door_type_attribute = relationship('DoorTypeAttribute', back_populates='nested_attribute', cascade="all, delete-orphan")
     quotation_item_nested_attribute = relationship('QuotationItemNestedAttribute', back_populates='nested_attribute')
 
 
@@ -198,8 +199,8 @@ class NestedAttributeChild(Base):
     # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     nested_attribute = relationship('NestedAttribute', back_populates='nested_attribute_children')
     attribute = relationship('Attribute', back_populates='nested_attribute_child')
@@ -219,13 +220,13 @@ class DoorTypeAttribute(Base):
     # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     # Relationships
-    attributes = relationship('Attribute', back_populates='door_type_attribute')
+    attribute = relationship('Attribute', back_populates='door_type_attribute')
     door_type = relationship('DoorType', back_populates='door_type_attributes')
-    nested_attributes = relationship('NestedAttribute', back_populates='door_type_attribute')
+    nested_attribute = relationship('NestedAttribute', back_populates='door_type_attribute')
 
     __table_args__ = (
         UniqueConstraint('door_type_id', 'attribute_id', name='uq_door_type_attribute'),
@@ -249,8 +250,8 @@ class Unit(Base):
     # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     # Backrefs
     attributes = relationship('Attribute', back_populates='unit', cascade="all, delete-orphan")
@@ -274,8 +275,8 @@ class Quotation(Base):
     # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     customer = relationship('Customer', back_populates='quotations')
     items = relationship('QuotationItem', back_populates='quotation', cascade="all, delete-orphan")
@@ -307,8 +308,8 @@ class QuotationItem(Base):
     # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     quotation = relationship('Quotation', back_populates='items')
     door_type = relationship('DoorType', back_populates='items')
@@ -333,8 +334,8 @@ class QuotationItemAttribute(Base):
     # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     quotation_item = relationship('QuotationItem', back_populates='attributes')
     quotation_item_nested_attribute = relationship('QuotationItemNestedAttribute', back_populates='quotation_item_attribute')
@@ -351,8 +352,8 @@ class QuotationItemNestedAttribute(Base):
     # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
+    updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     nested_attribute = relationship('NestedAttribute', back_populates='quotation_item_nested_attribute')
     quotation_item_attribute = relationship('QuotationItemAttribute', back_populates='quotation_item_nested_attribute', cascade="all, delete-orphan")

@@ -4,6 +4,9 @@ Main application entry point with database initialization and router registratio
 """
 
 from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import JSONResponse
+from datetime import datetime
+from time_utils import format_datetime_ist
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlalchemy import text
@@ -64,6 +67,21 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+# Global response override to format datetimes in dd-mm-yyyy.h:m:s (IST)
+class ISTJSONResponse(JSONResponse):
+    def render(self, content) -> bytes:
+        def convert(obj):
+            if isinstance(obj, datetime):
+                return format_datetime_ist(obj)
+            if isinstance(obj, list):
+                return [convert(i) for i in obj]
+            if isinstance(obj, dict):
+                return {k: convert(v) for k, v in obj.items()}
+            return obj
+
+        return super().render(convert(content))
+
+app.default_response_class = ISTJSONResponse
 
 # ============================================================================
 # MIDDLEWARE

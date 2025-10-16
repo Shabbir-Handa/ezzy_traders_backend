@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
 from datetime import datetime, timezone
+from time_utils import now_ist
 from fastapi import HTTPException, status
 from db_helper.models import Customer, Quotation, QuotationItem, QuotationItemAttribute, DoorType, Attribute, UnitValue, DoorTypeThicknessOption, AttributeOption, QuotationItemNestedAttribute, NestedAttribute
 from schemas.schemas import (
@@ -63,7 +64,7 @@ class CustomerQuotationCRUD:
             setattr(customer, key, value)
         
         customer.updated_by = username
-        customer.updated_at = datetime.now(timezone.utc)
+        customer.updated_at = now_ist()
 
         db.flush()
         return customer
@@ -388,7 +389,7 @@ class CustomerQuotationCRUD:
         
         # Update quotation total
         quotation.total_amount = total_quotation_cost
-        quotation.updated_at = datetime.now(timezone.utc)
+        quotation.updated_at = now_ist()
         
         db.flush()
         return quotation
@@ -407,7 +408,7 @@ class CustomerQuotationCRUD:
             setattr(quotation, key, value)
         
         quotation.updated_by = updated_by
-        quotation.updated_at = datetime.now(timezone.utc)
+        quotation.updated_at = now_ist()
 
         db.flush()
         return quotation
@@ -472,7 +473,7 @@ class CustomerQuotationCRUD:
             setattr(quotation_item, key, value)
         
         quotation_item.updated_by = updated_by
-        quotation_item.updated_at = datetime.now(timezone.utc)
+        quotation_item.updated_at = now_ist()
 
         db.flush()
         return quotation_item
@@ -532,7 +533,7 @@ class CustomerQuotationCRUD:
             setattr(quotation_item_attribute, key, value)
         
         quotation_item_attribute.updated_by = updated_by
-        quotation_item_attribute.updated_at = datetime.now(timezone.utc)
+        quotation_item_attribute.updated_at = now_ist()
 
         db.flush()
         return quotation_item_attribute
@@ -590,7 +591,7 @@ class CustomerQuotationCRUD:
                 setattr(quotation_item_nested_attribute, key, value)
         
         quotation_item_nested_attribute.updated_by = updated_by
-        quotation_item_nested_attribute.updated_at = datetime.now(timezone.utc)
+        quotation_item_nested_attribute.updated_at = now_ist()
 
         db.flush()
         return quotation_item_nested_attribute

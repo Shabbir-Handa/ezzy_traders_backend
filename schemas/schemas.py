@@ -119,8 +119,8 @@ class DoorTypeUpdate(DoorTypeBase):
 
 class DoorTypeResponse(DoorTypeBase):
     id: int
-    door_type_attributes: List["DoorTypeAttributeResponse"] = []
-    thickness_options: List["DoorTypeThicknessOptionResponse"] = []
+    door_type_attributes: Optional[List["DoorTypeAttributeResponse"]] = None
+    thickness_options: Optional[List["DoorTypeThicknessOptionResponse"]] = None
     created_by: str
     updated_by: str
     created_at: datetime
@@ -305,7 +305,7 @@ class NestedAttributeShortResponse(NestedAttributeBase):
 
 
 class NestedAttributeResponse(NestedAttributeShortResponse):
-    children: List["NestedAttributeChildResponse"] = []
+    nested_attribute_children: List["NestedAttributeChildResponse"] = []
     created_by: str
     updated_by: str
     created_at: datetime

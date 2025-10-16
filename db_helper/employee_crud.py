@@ -6,6 +6,7 @@ Simplified employee management without complex role-permission systems
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timezone
+from time_utils import now_ist
 from fastapi import HTTPException, status
 from db_helper.models import Employee
 from schemas.schemas import (
@@ -60,7 +61,7 @@ class EmployeeCRUD:
             setattr(employee, key, value)
         
         employee.updated_by = username
-        employee.updated_at = datetime.now(timezone.utc)
+        employee.updated_at = now_ist()
 
         db.flush()
         return employee
@@ -108,8 +109,31 @@ class EmployeeCRUD:
         
         employee.role = new_role
         employee.updated_by = username
-        employee.updated_at = datetime.now(timezone.utc)
+        employee.updated_at = now_ist()
         
+        db.flush()
+        return employee
+
+    @staticmethod
+    def change_employee_password(db: Session, employee_id: int, new_password: str, username: str = None) -> Optional[EmployeeResponse]:
+        """Change an employee's password"""
+        employee = db.get(Employee, employee_id)
+        if not employee:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee not found"
+            )
+
+        if not new_password or len(new_password) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 6 characters long"
+            )
+
+        employee.hashed_password = get_password_hash(new_password)
+        employee.updated_by = username
+        employee.updated_at = now_ist()
+
         db.flush()
         return employee
 

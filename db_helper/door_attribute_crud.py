@@ -4,7 +4,7 @@ Door and Attribute Management CRUD Operations
 
 from sqlalchemy.orm import Session, joinedload, selectinload
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
+from time_utils import now_ist
 from fastapi import HTTPException, status
 
 from db_helper.models import DoorType, Attribute, DoorTypeAttribute, AttributeOption, NestedAttribute, Unit, \
@@ -52,8 +52,8 @@ class DoorAttributeCRUD:
         return db.query(DoorType).options(
             joinedload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.attribute).joinedload(Attribute.options),
             joinedload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.attribute).selectinload(Attribute.unit),
-            joinedload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.nested_attributes).joinedload(NestedAttribute.nested_attribute_children).joinedload(NestedAttributeChild.attribute).joinedload(Attribute.options),
-            joinedload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.nested_attributes).joinedload(NestedAttribute.nested_attribute_children).joinedload(NestedAttributeChild.attribute).selectinload(Attribute.unit),
+            joinedload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.nested_attribute).joinedload(NestedAttribute.nested_attribute_children).joinedload(NestedAttributeChild.attribute).joinedload(Attribute.options),
+            joinedload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.nested_attribute).joinedload(NestedAttribute.nested_attribute_children).joinedload(NestedAttributeChild.attribute).selectinload(Attribute.unit),
             joinedload(DoorType.thickness_options)
         ).filter(DoorType.id == door_type_id).first()
 
@@ -62,8 +62,8 @@ class DoorAttributeCRUD:
         return db.query(DoorType).options(
             selectinload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.attribute).joinedload(Attribute.options),
             selectinload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.attribute).selectinload(Attribute.unit),
-            selectinload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.nested_attributes).joinedload(NestedAttribute.nested_attribute_children).joinedload(NestedAttributeChild.attribute).joinedload(Attribute.options),
-            selectinload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.nested_attributes).joinedload(NestedAttribute.nested_attribute_children).joinedload(NestedAttributeChild.attribute).selectinload(Attribute.unit),
+            selectinload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.nested_attribute).joinedload(NestedAttribute.nested_attribute_children).joinedload(NestedAttributeChild.attribute).joinedload(Attribute.options),
+            selectinload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.nested_attribute).joinedload(NestedAttribute.nested_attribute_children).joinedload(NestedAttributeChild.attribute).selectinload(Attribute.unit),
             joinedload(DoorType.thickness_options)
         ).offset(skip).limit(limit).all()
 
@@ -86,7 +86,7 @@ class DoorAttributeCRUD:
             setattr(door_type, key, value)
 
         door_type.updated_by = username
-        door_type.updated_at = datetime.now(timezone.utc)
+        door_type.updated_at = now_ist()
 
         db.flush()
         return door_type
@@ -148,7 +148,7 @@ class DoorAttributeCRUD:
             setattr(thickness_option, key, value)
 
         thickness_option.updated_by = username
-        thickness_option.updated_at = datetime.now(timezone.utc)
+        thickness_option.updated_at = now_ist()
 
         db.flush()
         return thickness_option
@@ -183,6 +183,11 @@ class DoorAttributeCRUD:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Cost is required for constant and variable cost types"
                 )
+        if data.has_options and data.cost_type == "direct":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Direct cost type is not allowed when options are present"
+            )
         if data.cost_type == "variable" and not data.unit_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -205,7 +210,6 @@ class DoorAttributeCRUD:
                 option.attribute_id = attribute.id
                 db_option = AttributeOption(
                     **option.dict(),
-                    attribute_id=attribute.id,
                     created_by=username,
                     updated_by=username
                 )
@@ -216,15 +220,15 @@ class DoorAttributeCRUD:
     @staticmethod
     def get_attribute_by_id(db: Session, attribute_id: int) -> Optional[AttributeResponse]:
         return db.query(Attribute).options(
-            joinedload(Attribute.options).joinedload(AttributeOption.unit),
+            joinedload(Attribute.options),
             joinedload(Attribute.unit)
         ).filter(Attribute.id == attribute_id).first()
 
     @staticmethod
     def get_all_attributes(db: Session, skip: int = 0, limit: int = 100) -> List[AttributeResponse]:
         query = db.query(Attribute).options(
-            joinedload(Attribute.options).joinedload(AttributeOption.unit),
-            joinedload(Attribute.unit)
+            joinedload(Attribute.options),
+            selectinload(Attribute.unit)
         )
         return query.offset(skip).limit(limit).all()
 
@@ -247,7 +251,7 @@ class DoorAttributeCRUD:
             setattr(attribute, key, value)
 
         attribute.updated_by = username
-        attribute.updated_at = datetime.now(timezone.utc)
+        attribute.updated_at = now_ist()
 
         db.flush()
         return attribute
@@ -322,7 +326,7 @@ class DoorAttributeCRUD:
             setattr(door_type_attribute, key, value)
 
         door_type_attribute.updated_by = username
-        door_type_attribute.updated_at = datetime.now(timezone.utc)
+        door_type_attribute.updated_at = now_ist()
 
         db.flush()
         return door_type_attribute
@@ -386,7 +390,7 @@ class DoorAttributeCRUD:
             setattr(attribute_option, key, value)
 
         attribute_option.updated_by = username
-        attribute_option.updated_at = datetime.now(timezone.utc)
+        attribute_option.updated_at = now_ist()
 
         db.flush()
         return attribute_option
@@ -474,7 +478,7 @@ class DoorAttributeCRUD:
             setattr(nested_attribute, key, value)
 
         nested_attribute.updated_by = username
-        nested_attribute.updated_at = datetime.now(timezone.utc)
+        nested_attribute.updated_at = now_ist()
 
         db.flush()
         return nested_attribute
@@ -542,7 +546,7 @@ class DoorAttributeCRUD:
             setattr(nested_attribute_child, key, value)
 
         nested_attribute_child.updated_by = username
-        nested_attribute_child.updated_at = datetime.now(timezone.utc)
+        nested_attribute_child.updated_at = now_ist()
 
         db.flush()
         return nested_attribute_child
@@ -601,7 +605,7 @@ class DoorAttributeCRUD:
             setattr(unit, key, value)
 
         unit.updated_by = username
-        unit.updated_at = datetime.now(timezone.utc)
+        unit.updated_at = now_ist()
 
         db.flush()
         return unit
