@@ -8,14 +8,13 @@ from decimal import Decimal
 from datetime import datetime, timezone
 from time_utils import now_ist
 from fastapi import HTTPException, status
-from db_helper.models import Customer, Quotation, QuotationItem, QuotationItemAttribute, DoorType, Attribute, UnitValue, DoorTypeThicknessOption, AttributeOption, QuotationItemNestedAttribute, NestedAttribute
+from db_helper.models import Customer, Quotation, QuotationItem, QuotationItemAttribute, DoorType, Attribute, UnitValue, DoorTypeThicknessOption, AttributeOption, QuotationItemNestedAttribute, NestedAttribute, CostType
 from schemas.schemas import (
     CustomerCreate, CustomerUpdate, CustomerResponse,
     QuotationCreate, QuotationUpdate, QuotationResponse, QuotationShortResponse,
     QuotationItemCreate, QuotationItemUpdate, QuotationItemResponse,
     QuotationItemAttributeCreate, QuotationItemAttributeUpdate, QuotationItemAttributeResponse,
-    QuotationItemNestedAttributeCreate, QuotationItemNestedAttributeResponse,
-    CostType
+    QuotationItemNestedAttributeCreate, QuotationItemNestedAttributeResponse
 )
 
 # Import for comprehensive quotation creation
@@ -191,7 +190,11 @@ class CustomerQuotationCRUD:
                                     elif attribute.unit.unit_type == "Vector":
                                         calculated_cost = attribute.cost * attr.unit_values[0].value1 * attr.unit_values[1].value2
 
-                        total_attribute_cost = calculated_cost if attr.direct_cost is None else attr.direct_cost
+                        if attribute.cost_type == CostType.DIRECT:
+                            total_attribute_cost = attr.direct_cost
+                        else:
+                            total_attribute_cost = calculated_cost
+                        
                         if attr.double_side:
                             total_attribute_cost *= 2
 
@@ -322,8 +325,7 @@ class CustomerQuotationCRUD:
             
             # Get all attributes for this item
             item_attributes = db.query(QuotationItemAttribute).filter(
-                QuotationItemAttribute.quotation_item_id == item.id,
-                QuotationItemAttribute.is_active == True
+                QuotationItemAttribute.quotation_item_id == item.id
             ).all()
             
             for attr in item_attributes:
@@ -338,9 +340,7 @@ class CustomerQuotationCRUD:
                     selected_option = db.query(AttributeOption).filter(
                         AttributeOption.id == attr.selected_option_id
                     ).first()
-                
                 calculated_cost = 0
-                
                 if attribute.cost_type == CostType.DIRECT:
                     calculated_cost =  0
                 else:
@@ -348,7 +348,6 @@ class CustomerQuotationCRUD:
                     unit_values = db.query(UnitValue).filter(
                         UnitValue.quotation_item_attribute_id == attr.id
                     ).all()
-                    
                     if selected_option:
                         if attribute.cost_type == CostType.CONSTANT:
                             calculated_cost = selected_option.cost or 0
@@ -367,7 +366,13 @@ class CustomerQuotationCRUD:
                                 calculated_cost = (attribute.cost or 0) * (unit_values[0].value1 or 0) * (unit_values[1].value2 or 0)
                     
                 # Update the attribute cost
-                attr.total_attribute_cost = calculated_cost if attr.direct_cost is None else attr.direct_cost
+                if attribute.cost_type == CostType.DIRECT:
+                    attr.total_attribute_cost = attr.direct_cost
+                else:
+                    attr.total_attribute_cost = calculated_cost
+                    attr.calculated_cost = calculated_cost
+                if attr.double_side:
+                    attr.total_attribute_cost *= 2
                 per_unit_attribute_total += attr.total_attribute_cost
             
             # Update item costs
@@ -458,8 +463,7 @@ class CustomerQuotationCRUD:
             joinedload(QuotationItem.door_type),
             joinedload(QuotationItem.attributes).joinedload(QuotationItemAttribute.attribute)
         ).filter(
-            QuotationItem.quotation_id == quotation_id,
-            QuotationItem.is_active == True
+            QuotationItem.quotation_id == quotation_id
         ).all()
 
     @staticmethod
@@ -483,9 +487,7 @@ class CustomerQuotationCRUD:
         quotation_item = db.get(QuotationItem, item_id)
         if not quotation_item:
             return False
-        
-        # Soft delete - just mark as inactive
-        quotation_item.is_active = False
+        db.delete(quotation_item)
         db.flush()
         return True
 
@@ -518,8 +520,7 @@ class CustomerQuotationCRUD:
         return db.query(QuotationItemAttribute).options(
             joinedload(QuotationItemAttribute.attribute)
         ).filter(
-            QuotationItemAttribute.quotation_item_id == quotation_item_id,
-            QuotationItemAttribute.is_active == True
+            QuotationItemAttribute.quotation_item_id == quotation_item_id
         ).all()
 
     @staticmethod
@@ -544,8 +545,7 @@ class CustomerQuotationCRUD:
         if not quotation_item_attribute:
             return False
         
-        # Soft delete - just mark as inactive
-        quotation_item_attribute.is_active = False
+        db.delete(quotation_item_attribute)
         db.flush()
         return True
 
@@ -576,8 +576,7 @@ class CustomerQuotationCRUD:
         return db.query(QuotationItemNestedAttribute).options(
             joinedload(QuotationItemNestedAttribute.nested_attribute)
         ).filter(
-            QuotationItemNestedAttribute.quotation_item_id == quotation_item_id,
-            QuotationItemNestedAttribute.is_active == True
+            QuotationItemNestedAttribute.quotation_item_id == quotation_item_id
         ).all()
 
     @staticmethod
@@ -602,8 +601,7 @@ class CustomerQuotationCRUD:
         if not quotation_item_nested_attribute:
             return False
         
-        # Soft delete - just mark as inactive
-        quotation_item_nested_attribute.is_active = False
+        db.delete(quotation_item_nested_attribute)
         db.flush()
         return True
 
