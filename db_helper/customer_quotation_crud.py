@@ -140,7 +140,6 @@ class CustomerQuotationCRUD:
                 if item.nested_attributes:
                     for nested_attribute in item.nested_attributes:
                         quotation_item_nested_attribute = QuotationItemNestedAttribute(
-                            quotation_item_id=quotation_item.id,
                             nested_attribute_id=nested_attribute.nested_attribute_id,
                             created_by=username,
                             updated_by=username
@@ -163,6 +162,7 @@ class CustomerQuotationCRUD:
                             selected_option = db.query(AttributeOption).filter(
                                 AttributeOption.id == attr.selected_option_id
                             ).first()
+                        calculated_cost = 0
                         if attribute.cost_type == CostType.DIRECT:
                             calculated_cost = 0
                         else:
@@ -225,14 +225,14 @@ class CustomerQuotationCRUD:
                         item_attribute_costs.append(quotation_item_attribute)
                         per_unit_attribute_total += total_attribute_cost
                 
-                item.attribute_cost_per_unit = per_unit_attribute_total
-                item.unit_price_with_attributes = item.base_cost_per_unit + per_unit_attribute_total
+                quotation_item.attribute_cost_per_unit = per_unit_attribute_total
+                quotation_item.unit_price_with_attributes = quotation_item.base_cost_per_unit + per_unit_attribute_total
                 discount_amount = item.discount_amount or 0
-                item.unit_price_with_discount = item.unit_price_with_attributes - discount_amount
+                quotation_item.unit_price_with_discount = quotation_item.unit_price_with_attributes - discount_amount
                 tax_percentage = item.tax_percentage or 0
-                item.unit_price_with_tax = item.unit_price_with_discount * (1 + tax_percentage / 100)
-                item.total_item_cost = item.unit_price_with_tax * item.quantity
-                total_quotation_cost += item.total_item_cost
+                quotation_item.unit_price_with_tax = quotation_item.unit_price_with_discount * (1 + tax_percentage / 100)
+                quotation_item.total_item_cost = quotation_item.unit_price_with_tax * item.quantity
+                total_quotation_cost += quotation_item.total_item_cost
 
         quotation.total_amount = total_quotation_cost
         
