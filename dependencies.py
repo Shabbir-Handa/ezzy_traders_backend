@@ -16,16 +16,13 @@ from schemas.schemas import TokenData
 
 # ============================================================================
 # DATABASE CONFIGURATION
-# ============================================================================
-
-try:
-    DATABASE_URL = "postgresql://postgres:TrA+ZPrfhwjLa7i@db.vanonpimvxobfypishpo.supabase.co:5432/postgres"
-    engine = create_engine(DATABASE_URL)
-except:
-    DATABASE_URL = "postgresql://postgres.vanonpimvxobfypishpo:TrA+ZPrfhwjLa7i@aws-1-ap-south-1.pooler.supabase.com:6543/postgres"
-    engine = create_engine(DATABASE_URL)
+# ==============================
+DATABASE_URL = ("postgresql://postgres.nszmthzgfkosckdhaboz:TrA+ZPrfhwjLa7i@aws-1-ap-southeast-1.pooler.supabase.com"
+                ":5432/postgres")
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
+# new-url :- postgresql://postgres.nszmthzgfkosckdhaboz:TrA+ZPrfhwjLa7i@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres
+# old-url :- postgresql://postgres.vanonpimvxobfypishpo:TrA+ZPrfhwjLa7i@aws-1-ap-south-1.pooler.supabase.com:5432/postgres
 # ============================================================================
 # PASSWORD HASHING
 # ============================================================================

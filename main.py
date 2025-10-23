@@ -67,6 +67,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+
 # Global response override to format datetimes in dd-mm-yyyy.h:m:s (IST)
 class ISTJSONResponse(JSONResponse):
     def render(self, content) -> bytes:
@@ -80,6 +82,7 @@ class ISTJSONResponse(JSONResponse):
             return obj
 
         return super().render(convert(content))
+
 
 app.default_response_class = ISTJSONResponse
 
