@@ -18,7 +18,7 @@ from schemas.schemas import TokenData
 # DATABASE CONFIGURATION
 # ==============================
 DATABASE_URL = ("postgresql://postgres.nszmthzgfkosckdhaboz:TrA+ZPrfhwjLa7i@aws-1-ap-southeast-1.pooler.supabase.com"
-                ":5432/postgres")
+                ":6543/postgres")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # new-url :- postgresql://postgres.nszmthzgfkosckdhaboz:TrA+ZPrfhwjLa7i@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres
