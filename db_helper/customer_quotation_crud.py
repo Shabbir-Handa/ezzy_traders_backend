@@ -133,7 +133,7 @@ class CustomerQuotationCRUD:
                 )
                 db.add(quotation_item)
                 db.flush()
-                attribute_list = []
+                attribute_list = item.attributes
                 item_attribute_costs = []
                 per_unit_attribute_total = 0
                 if item.nested_attributes:
