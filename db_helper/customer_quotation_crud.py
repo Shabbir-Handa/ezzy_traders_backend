@@ -169,26 +169,27 @@ class CustomerQuotationCRUD:
                                 if attribute.cost_type == CostType.CONSTANT:
                                     calculated_cost = selected_option.cost
                                 elif attribute.cost_type == CostType.VARIABLE and attr.unit_values:
-                                    if attribute.unit.unit_type == "Linear" and len(attr.unit_values) != 1:
-                                        raise ValueError(f"Linear attribute {attribute.name} has {len(attr.unit_values)} unit values")
-                                    elif attribute.unit.unit_type == "Vector" and len(attr.unit_values) != 2:
-                                        raise ValueError(f"Vector attribute {attribute.name} has {len(attr.unit_values)} unit values")
+                                    print(attr.unit_values)
+                                    # if attribute.unit.unit_type == "Linear" and len(attr.unit_values) != 1:
+                                    #     raise ValueError(f"Linear attribute {attribute.name} has {len(attr.unit_values)} unit values")
+                                    # elif attribute.unit.unit_type == "Vector" and len(attr.unit_values) != 2:
+                                    #     raise ValueError(f"Vector attribute {attribute.name} has {len(attr.unit_values)} unit values")
                                     if attribute.unit.unit_type == "Linear":
                                         calculated_cost = selected_option.cost * attr.unit_values[0].value1
                                     elif attribute.unit.unit_type == "Vector":
-                                        calculated_cost = selected_option.cost * attr.unit_values[0].value1 * attr.unit_values[1].value2
+                                        calculated_cost = selected_option.cost * attr.unit_values[0].value1 * attr.unit_values[0].value2
                             else:
                                 if attribute.cost_type == CostType.CONSTANT:
                                     calculated_cost = attribute.cost
                                 elif attribute.cost_type == CostType.VARIABLE and attr.unit_values:
-                                    if attribute.unit.unit_type == "Linear" and len(attr.unit_values) != 1:
-                                        raise ValueError(f"Linear attribute {attribute.name} has {len(attr.unit_values)} unit values")
-                                    elif attribute.unit.unit_type == "Vector" and len(attr.unit_values) != 2:
-                                        raise ValueError(f"Vector attribute {attribute.name} has {len(attr.unit_values)} unit values")
+                                    # if attribute.unit.unit_type == "Linear" and len(attr.unit_values) != 1:
+                                    #     raise ValueError(f"Linear attribute {attribute.name} has {len(attr.unit_values)} unit values")
+                                    # elif attribute.unit.unit_type == "Vector" and len(attr.unit_values) != 2:
+                                    #     raise ValueError(f"Vector attribute {attribute.name} has {len(attr.unit_values)} unit values")
                                     if attribute.unit.unit_type == "Linear":
                                         calculated_cost = attribute.cost * attr.unit_values[0].value1
                                     elif attribute.unit.unit_type == "Vector":
-                                        calculated_cost = attribute.cost * attr.unit_values[0].value1 * attr.unit_values[1].value2
+                                        calculated_cost = attribute.cost * attr.unit_values[0].value1 * attr.unit_values[0].value2
 
                         if attribute.cost_type == CostType.DIRECT:
                             total_attribute_cost = attr.direct_cost
