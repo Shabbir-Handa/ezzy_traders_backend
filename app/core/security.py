@@ -1,28 +1,23 @@
 """
-Dependencies for FastAPI application
-Database connection, authentication, and user management
+Security Module
+Password hashing, JWT token management, and authentication dependencies.
 """
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Annotated
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-from db_helper.models import Employee
-from schemas.schemas import TokenData
 
-# ============================================================================
-# DATABASE CONFIGURATION
-# ==============================
-DATABASE_URL = ("postgresql://postgres.nszmthzgfkosckdhaboz:TrA+ZPrfhwjLa7i@aws-1-ap-southeast-1.pooler.supabase.com"
-                ":6543/postgres")
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-# new-url :- postgresql://postgres.nszmthzgfkosckdhaboz:TrA+ZPrfhwjLa7i@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres
-# old-url :- postgresql://postgres.vanonpimvxobfypishpo:TrA+ZPrfhwjLa7i@aws-1-ap-south-1.pooler.supabase.com:5432/postgres
+from app.core.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from app.db.session import get_db
+from app.models.employee import Employee
+from app.schemas.employee import TokenData
+
+
 # ============================================================================
 # PASSWORD HASHING
 # ============================================================================
@@ -42,13 +37,8 @@ def get_password_hash(password: str) -> str:
 
 
 # ============================================================================
-# JWT CONFIGURATION
+# JWT TOKEN MANAGEMENT
 # ============================================================================
-
-SECRET_KEY = "your-secret-key-here-change-in-production"  # Change this in production
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 300
-
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Create JWT access token"""
@@ -76,21 +66,9 @@ def verify_token(token: str) -> Optional[TokenData]:
 
 
 # ============================================================================
-# DATABASE DEPENDENCIES
-# ============================================================================
-
-def get_db():
-    """Database session dependency"""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-# ============================================================================
 # AUTHENTICATION DEPENDENCIES
 # ============================================================================
+
 async def get_current_user(
         token: str = Depends(oauth2_scheme),
         db: Session = Depends(get_db)

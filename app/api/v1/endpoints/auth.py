@@ -1,23 +1,21 @@
 """
-Authentication Router
-Handles login, logout, and token management
+Authentication Endpoints
+Handles login, token refresh, logout, and health check.
+Routes contain NO business logic — all logic delegated to services.
 """
 
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Form
-from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 
-from dependencies import get_db, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user
-from db_helper.employee_crud import EmployeeCRUD
-from schemas.schemas import EmployeeLoginResponse
+from app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES
+from app.core.security import create_access_token, get_current_user
+from app.db.session import get_db
+from app.services.employee_service import EmployeeService
+from app.schemas.employee import EmployeeLoginResponse
 
-router = APIRouter(prefix="/api", tags=["Authentication"])
+router = APIRouter(prefix="", tags=["Authentication"])
 
-
-# ============================================================================
-# LOGIN ENDPOINTS
-# ============================================================================
 
 @router.post("/login")
 async def login(
@@ -25,11 +23,8 @@ async def login(
         password: str = Form(...),
         db: Session = Depends(get_db)
 ):
-    """
-    OAuth2 compatible token login, returns an access token
-    """
-    # Authenticate employee
-    employee = EmployeeCRUD.authenticate_employee(db, username, password)
+    """OAuth2 compatible token login"""
+    employee = EmployeeService.authenticate_employee(db, username, password)
     if not employee:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -37,16 +32,12 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": employee.username}, expires_delta=access_token_expires
     )
 
-    return {
-        "access_token": access_token,
-        "token_type": "bearer"
-    }
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.post("/login-user", response_model=EmployeeLoginResponse)
@@ -55,11 +46,8 @@ async def login_user(
         password: str = Form(...),
         db: Session = Depends(get_db)
 ):
-    """
-    Authenticate employee and return access token with role information
-    """
-    # Authenticate employee
-    employee = EmployeeCRUD.authenticate_employee(db, username, password)
+    """Authenticate employee and return access token with role information"""
+    employee = EmployeeService.authenticate_employee(db, username, password)
     if not employee:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -67,7 +55,6 @@ async def login_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": employee.username}, expires_delta=access_token_expires
@@ -82,17 +69,9 @@ async def login_user(
     )
 
 
-# ============================================================================
-# TOKEN VALIDATION ENDPOINTS
-# ============================================================================
-
 @router.get("/me")
-async def get_current_user_info(
-        current_user=Depends(get_current_user)
-):
-    """
-    Get current authenticated user information
-    """
+async def get_current_user_info(current_user=Depends(get_current_user)):
+    """Get current authenticated user information"""
     return {
         "id": current_user.id,
         "username": current_user.username,
@@ -104,44 +83,24 @@ async def get_current_user_info(
 
 
 @router.post("/refresh")
-async def refresh_token(
-        current_user=Depends(get_current_user)
-):
-    """
-    Refresh access token for current user
-    """
+async def refresh_token(current_user=Depends(get_current_user)):
+    """Refresh access token"""
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": current_user.username}, expires_delta=access_token_expires
     )
+    return {"access_token": access_token, "token_type": "bearer"}
 
-    return {
-        "access_token": access_token,
-        "token_type": "bearer"
-    }
-
-
-# ============================================================================
-# LOGOUT ENDPOINTS
-# ============================================================================
 
 @router.post("/logout")
 async def logout():
-    """
-    Logout endpoint (client should discard token)
-    """
+    """Logout (client should discard token)"""
     return {"message": "Successfully logged out"}
 
 
-# ============================================================================
-# HEALTH CHECK ENDPOINTS
-# ============================================================================
-
 @router.get("/status")
 async def auth_status():
-    """
-    Check authentication service status
-    """
+    """Check authentication service status"""
     return {
         "status": "healthy",
         "service": "authentication",

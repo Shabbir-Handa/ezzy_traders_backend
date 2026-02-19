@@ -1,3 +1,8 @@
+"""
+Time Utilities
+IST timezone helpers for datetime formatting and generation.
+"""
+
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -26,5 +31,3 @@ def format_datetime_ist(value: datetime) -> str:
     else:
         value = value.astimezone(tz)
     return value.strftime("%d-%m-%Y.%H:%M:%S")
-
-

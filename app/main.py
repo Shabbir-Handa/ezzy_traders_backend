@@ -1,20 +1,21 @@
 """
 Ezzy Traders Backend - FastAPI Application
-Main application entry point with database initialization and router registration
+Main application entry point with database initialization and router registration.
+Refactored to use modular app/ package structure.
 """
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
 from datetime import datetime
-from time_utils import format_datetime_ist
+from app.utils.time_utils import format_datetime_ist
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from dependencies import engine
-from db_helper.models import Base
-from routers import employees, auth, door_attribute, customer_quotation
+from app.db.session import engine
+from app.models.base import Base
+from app.api.v1.router import router as v1_router
 
 
 # ============================================================================
@@ -103,10 +104,7 @@ app.add_middleware(
 # ROUTERS
 # ============================================================================
 
-app.include_router(auth.router)
-app.include_router(employees.router)
-app.include_router(door_attribute.router)
-app.include_router(customer_quotation.router)
+app.include_router(v1_router)
 
 
 # ============================================================================
@@ -127,7 +125,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "main:app",
+        "app.main:app",
         host="0.0.0.0",
         port=8000,
         reload=True,

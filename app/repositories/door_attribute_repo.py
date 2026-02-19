@@ -1,33 +1,38 @@
 """
-Door and Attribute Management CRUD Operations
+Door & Attribute Repository
+Data access layer for DoorType, Attribute, NestedAttribute, Unit, and related entities.
 """
 
 from sqlalchemy.orm import Session, joinedload, selectinload
-from typing import List, Optional, Dict, Any
-from time_utils import now_ist
+from typing import List, Optional
+
+from app.utils.time_utils import now_ist
 from fastapi import HTTPException, status
-
-from db_helper.models import DoorType, Attribute, DoorTypeAttribute, AttributeOption, NestedAttribute, Unit, \
-    DoorTypeThicknessOption, NestedAttributeChild
-from schemas.schemas import (
-    DoorTypeCreate, DoorTypeUpdate, DoorTypeResponse,
-    AttributeCreate, AttributeUpdate, AttributeResponse,
-    DoorTypeAttributeCreate, DoorTypeAttributeUpdate, DoorTypeAttributeResponse,
-    AttributeOptionCreate, AttributeOptionUpdate, AttributeOptionResponse,
-    NestedAttributeCreate, NestedAttributeUpdate, NestedAttributeResponse,
-    UnitCreate, UnitUpdate, UnitResponse,
-    DoorTypeThicknessOptionCreate, DoorTypeThicknessOptionUpdate, DoorTypeThicknessOptionResponse,
-    NestedAttributeChildCreate, NestedAttributeChildUpdate, NestedAttributeChildResponse
+from app.models import (
+    DoorType, Attribute, DoorTypeAttribute, AttributeOption,
+    NestedAttribute, Unit, DoorTypeThicknessOption, NestedAttributeChild
 )
+from app.schemas.door_type import (
+    DoorTypeCreate, DoorTypeUpdate,
+    DoorTypeThicknessOptionCreate, DoorTypeThicknessOptionUpdate,
+    DoorTypeAttributeCreate, DoorTypeAttributeUpdate,
+)
+from app.schemas.attribute import (
+    AttributeCreate, AttributeUpdate,
+    AttributeOptionCreate, AttributeOptionUpdate,
+    NestedAttributeCreate, NestedAttributeUpdate,
+    NestedAttributeChildCreate, NestedAttributeChildUpdate,
+)
+from app.schemas.unit import UnitCreate, UnitUpdate
 
 
-class DoorAttributeCRUD:
+class DoorAttributeRepository:
     # ============================================================================
     # DOOR TYPE METHODS
     # ============================================================================
 
     @staticmethod
-    def create_door_type(db: Session, data: DoorTypeCreate, username: str = None) -> DoorTypeResponse:
+    def create_door_type(db: Session, data: DoorTypeCreate, username: str = None) -> DoorType:
         door_type = DoorType(
             **data.dict(exclude="thickness_options"),
             created_by=username,
@@ -48,7 +53,7 @@ class DoorAttributeCRUD:
         return door_type
 
     @staticmethod
-    def get_door_type_by_id(db: Session, door_type_id: int) -> Optional[DoorTypeResponse]:
+    def get_door_type_by_id(db: Session, door_type_id: int) -> Optional[DoorType]:
         return db.query(DoorType).options(
             joinedload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.attribute).joinedload(Attribute.options),
             joinedload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.attribute).selectinload(Attribute.unit),
@@ -58,7 +63,7 @@ class DoorAttributeCRUD:
         ).filter(DoorType.id == door_type_id).first()
 
     @staticmethod
-    def get_all_door_types(db: Session, skip: int = 0, limit: int = 100) -> List[DoorTypeResponse]:
+    def get_all_door_types(db: Session, skip: int = 0, limit: int = 100) -> List[DoorType]:
         return db.query(DoorType).options(
             selectinload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.attribute).joinedload(Attribute.options),
             selectinload(DoorType.door_type_attributes).joinedload(DoorTypeAttribute.attribute).selectinload(Attribute.unit),
@@ -72,8 +77,7 @@ class DoorAttributeCRUD:
         return db.query(DoorType).count()
 
     @staticmethod
-    def update_door_type(db: Session, door_type_id: int, data: DoorTypeUpdate, username: str = None) -> Optional[
-        DoorTypeResponse]:
+    def update_door_type(db: Session, door_type_id: int, data: DoorTypeUpdate, username: str = None) -> Optional[DoorType]:
         door_type = db.get(DoorType, door_type_id)
         if not door_type:
             raise HTTPException(
@@ -108,13 +112,12 @@ class DoorAttributeCRUD:
         db.flush()
         return True
 
-
     # ============================================================================
     # DOOR TYPE THICKNESS OPTION METHODS
     # ============================================================================
 
     @staticmethod
-    def create_door_type_thickness_option(db: Session, data: DoorTypeThicknessOptionCreate, username: str = None) -> DoorTypeThicknessOptionResponse:
+    def create_door_type_thickness_option(db: Session, data: DoorTypeThicknessOptionCreate, username: str = None) -> DoorTypeThicknessOption:
         thickness_option = DoorTypeThicknessOption(
             **data.dict(),
             created_by=username,
@@ -125,17 +128,17 @@ class DoorAttributeCRUD:
         return thickness_option
 
     @staticmethod
-    def get_door_type_thickness_option_by_id(db: Session, thickness_option_id: int) -> Optional[DoorTypeThicknessOptionResponse]:
+    def get_door_type_thickness_option_by_id(db: Session, thickness_option_id: int) -> Optional[DoorTypeThicknessOption]:
         return db.query(DoorTypeThicknessOption).filter(DoorTypeThicknessOption.id == thickness_option_id).first()
 
     @staticmethod
-    def get_door_type_thickness_options_by_door_type(db: Session, door_type_id: int) -> List[DoorTypeThicknessOptionResponse]:
+    def get_door_type_thickness_options_by_door_type(db: Session, door_type_id: int) -> List[DoorTypeThicknessOption]:
         return db.query(DoorTypeThicknessOption).filter(
             DoorTypeThicknessOption.door_type_id == door_type_id
         ).order_by(DoorTypeThicknessOption.thickness_value).all()
 
     @staticmethod
-    def update_door_type_thickness_option(db: Session, thickness_option_id: int, data: DoorTypeThicknessOptionUpdate, username: str = None) -> Optional[DoorTypeThicknessOptionResponse]:
+    def update_door_type_thickness_option(db: Session, thickness_option_id: int, data: DoorTypeThicknessOptionUpdate, username: str = None) -> Optional[DoorTypeThicknessOption]:
         thickness_option = db.get(DoorTypeThicknessOption, thickness_option_id)
         if not thickness_option:
             raise HTTPException(
@@ -176,7 +179,7 @@ class DoorAttributeCRUD:
     # ============================================================================
 
     @staticmethod
-    def create_attribute(db: Session, data: AttributeCreate, username: str = None) -> AttributeResponse:
+    def create_attribute(db: Session, data: AttributeCreate, username: str = None) -> Attribute:
         if not data.has_options and data.cost_type in ["constant", "variable"]:
             if not data.cost:
                 raise HTTPException(
@@ -218,14 +221,14 @@ class DoorAttributeCRUD:
         return attribute
 
     @staticmethod
-    def get_attribute_by_id(db: Session, attribute_id: int) -> Optional[AttributeResponse]:
+    def get_attribute_by_id(db: Session, attribute_id: int) -> Optional[Attribute]:
         return db.query(Attribute).options(
             joinedload(Attribute.options),
             joinedload(Attribute.unit)
         ).filter(Attribute.id == attribute_id).first()
 
     @staticmethod
-    def get_all_attributes(db: Session, skip: int = 0, limit: int = 100) -> List[AttributeResponse]:
+    def get_all_attributes(db: Session, skip: int = 0, limit: int = 100) -> List[Attribute]:
         query = db.query(Attribute).options(
             joinedload(Attribute.options),
             selectinload(Attribute.unit)
@@ -237,8 +240,7 @@ class DoorAttributeCRUD:
         return db.query(Attribute).count()
 
     @staticmethod
-    def update_attribute(db: Session, attribute_id: int, data: AttributeUpdate, username: str = None) -> Optional[
-        AttributeResponse]:
+    def update_attribute(db: Session, attribute_id: int, data: AttributeUpdate, username: str = None) -> Optional[Attribute]:
         attribute = db.get(Attribute, attribute_id)
         if not attribute:
             raise HTTPException(
@@ -280,8 +282,7 @@ class DoorAttributeCRUD:
     # ============================================================================
 
     @staticmethod
-    def create_door_type_attribute(db: Session, data: DoorTypeAttributeCreate,
-                                username: str = None) -> DoorTypeAttributeResponse:
+    def create_door_type_attribute(db: Session, data: DoorTypeAttributeCreate, username: str = None) -> DoorTypeAttribute:
         door_type_attribute = DoorTypeAttribute(
             **data.dict(),
             created_by=username,
@@ -292,7 +293,7 @@ class DoorAttributeCRUD:
         return door_type_attribute
 
     @staticmethod
-    def get_door_type_attributes_by_door_type(db: Session, door_type_id: int) -> List[DoorTypeAttributeResponse]:
+    def get_door_type_attributes_by_door_type(db: Session, door_type_id: int) -> List[DoorTypeAttribute]:
         return db.query(DoorTypeAttribute).options(
             joinedload(DoorTypeAttribute.attribute).selectinload(Attribute.unit),
             joinedload(DoorTypeAttribute.attribute).joinedload(Attribute.options),
@@ -300,10 +301,10 @@ class DoorAttributeCRUD:
             joinedload(DoorTypeAttribute.nested_attribute).joinedload(NestedAttribute.nested_attribute_children).joinedload(Attribute.options),
         ).filter(
             DoorTypeAttribute.door_type_id == door_type_id
-        ).order_by(DoorTypeAttribute.order).all()
+        ).all()
 
     @staticmethod
-    def get_door_type_attribute_by_id(db: Session, door_type_attribute_id: int) -> Optional[DoorTypeAttributeResponse]:
+    def get_door_type_attribute_by_id(db: Session, door_type_attribute_id: int) -> Optional[DoorTypeAttribute]:
         return db.query(DoorTypeAttribute).options(
             joinedload(DoorTypeAttribute.attribute).selectinload(Attribute.unit),
             joinedload(DoorTypeAttribute.attribute).joinedload(Attribute.options),
@@ -312,8 +313,7 @@ class DoorAttributeCRUD:
         ).filter(DoorTypeAttribute.id == door_type_attribute_id).first()
 
     @staticmethod
-    def update_door_type_attribute(db: Session, door_type_attribute_id: int, data: DoorTypeAttributeUpdate,
-                                username: str = None) -> Optional[DoorTypeAttributeResponse]:
+    def update_door_type_attribute(db: Session, door_type_attribute_id: int, data: DoorTypeAttributeUpdate, username: str = None) -> Optional[DoorTypeAttribute]:
         door_type_attribute = db.get(DoorTypeAttribute, door_type_attribute_id)
         if not door_type_attribute:
             raise HTTPException(
@@ -354,8 +354,7 @@ class DoorAttributeCRUD:
     # ============================================================================
 
     @staticmethod
-    def create_attribute_option(db: Session, data: AttributeOptionCreate,
-                                username: str = None) -> AttributeOptionResponse:
+    def create_attribute_option(db: Session, data: AttributeOptionCreate, username: str = None) -> AttributeOption:
         attribute_option = AttributeOption(
             **data.dict(),
             created_by=username,
@@ -366,18 +365,17 @@ class DoorAttributeCRUD:
         return attribute_option
 
     @staticmethod
-    def get_attribute_options_by_attribute(db: Session, attribute_id: int) -> List[AttributeOptionResponse]:
+    def get_attribute_options_by_attribute(db: Session, attribute_id: int) -> List[AttributeOption]:
         return db.query(AttributeOption).filter(
             AttributeOption.attribute_id == attribute_id
         ).all()
 
     @staticmethod
-    def get_attribute_option_by_id(db: Session, option_id: int) -> Optional[AttributeOptionResponse]:
+    def get_attribute_option_by_id(db: Session, option_id: int) -> Optional[AttributeOption]:
         return db.query(AttributeOption).filter(AttributeOption.id == option_id).first()
 
     @staticmethod
-    def update_attribute_option(db: Session, option_id: int, data: AttributeOptionUpdate, username: str = None) -> \
-    Optional[AttributeOptionResponse]:
+    def update_attribute_option(db: Session, option_id: int, data: AttributeOptionUpdate, username: str = None) -> Optional[AttributeOption]:
         attribute_option = db.get(AttributeOption, option_id)
         if not attribute_option:
             raise HTTPException(
@@ -419,8 +417,7 @@ class DoorAttributeCRUD:
     # ============================================================================
 
     @staticmethod
-    def create_nested_attribute(db: Session, data: NestedAttributeCreate,
-                                username: str = None) -> NestedAttributeResponse:
+    def create_nested_attribute(db: Session, data: NestedAttributeCreate, username: str = None) -> NestedAttribute:
         nested_attribute = NestedAttribute(
             **data.dict(exclude="children"),
             created_by=username,
@@ -446,7 +443,7 @@ class DoorAttributeCRUD:
         return nested_attribute
 
     @staticmethod
-    def get_all_nested_attributes(db: Session, skip: int = 0, limit: int = 100) -> List[NestedAttributeResponse]:
+    def get_all_nested_attributes(db: Session, skip: int = 0, limit: int = 100) -> List[NestedAttribute]:
         return db.query(NestedAttribute).options(
             joinedload(NestedAttribute.nested_attribute_children).joinedload(NestedAttributeChild.attribute).selectinload(Attribute.unit),
             joinedload(NestedAttribute.nested_attribute_children).joinedload(NestedAttributeChild.attribute).joinedload(Attribute.options)
@@ -457,15 +454,14 @@ class DoorAttributeCRUD:
         return db.query(NestedAttribute).count()
 
     @staticmethod
-    def get_nested_attribute_by_id(db: Session, nested_attribute_id: int) -> Optional[NestedAttributeResponse]:
+    def get_nested_attribute_by_id(db: Session, nested_attribute_id: int) -> Optional[NestedAttribute]:
         return db.query(NestedAttribute).options(
             joinedload(NestedAttribute.nested_attribute_children).joinedload(NestedAttributeChild.attribute).selectinload(Attribute.unit),
             joinedload(NestedAttribute.nested_attribute_children).joinedload(NestedAttributeChild.attribute).joinedload(Attribute.options)
         ).filter(NestedAttribute.id == nested_attribute_id).first()
 
     @staticmethod
-    def update_nested_attribute(db: Session, nested_attribute_id: int, data: NestedAttributeUpdate,
-                                username: str = None) -> Optional[NestedAttributeResponse]:
+    def update_nested_attribute(db: Session, nested_attribute_id: int, data: NestedAttributeUpdate, username: str = None) -> Optional[NestedAttribute]:
         nested_attribute = db.get(NestedAttribute, nested_attribute_id)
         if not nested_attribute:
             raise HTTPException(
@@ -507,8 +503,7 @@ class DoorAttributeCRUD:
     # ============================================================================
 
     @staticmethod
-    def create_nested_attribute_child(db: Session, data: NestedAttributeChildCreate,
-                                username: str = None) -> NestedAttributeChildResponse:
+    def create_nested_attribute_child(db: Session, data: NestedAttributeChildCreate, username: str = None) -> NestedAttributeChild:
         nested_attribute_child = NestedAttributeChild(
             **data.dict(),
             created_by=username,
@@ -519,21 +514,21 @@ class DoorAttributeCRUD:
         return nested_attribute_child
 
     @staticmethod
-    def get_nested_attribute_children_by_nested_attribute(db: Session, nested_attribute_id: int) -> List[NestedAttributeChildResponse]:
+    def get_nested_attribute_children_by_nested_attribute(db: Session, nested_attribute_id: int) -> List[NestedAttributeChild]:
         return db.query(NestedAttributeChild).options(
             joinedload(NestedAttributeChild.attribute).selectinload(Attribute.unit),
             joinedload(NestedAttributeChild.attribute).joinedload(Attribute.options)
         ).filter(NestedAttributeChild.nested_attribute_id == nested_attribute_id).all()
 
     @staticmethod
-    def get_nested_attribute_child_by_id(db: Session, nested_attribute_child_id: int) -> Optional[NestedAttributeChildResponse]:
+    def get_nested_attribute_child_by_id(db: Session, nested_attribute_child_id: int) -> Optional[NestedAttributeChild]:
         return db.query(NestedAttributeChild).options(
             joinedload(NestedAttributeChild.attribute).selectinload(Attribute.unit),
             joinedload(NestedAttributeChild.attribute).joinedload(Attribute.options)
         ).filter(NestedAttributeChild.id == nested_attribute_child_id).first()
 
     @staticmethod
-    def update_nested_attribute_child(db: Session, nested_attribute_child_id: int, data: NestedAttributeChildUpdate, username: str = None) -> Optional[NestedAttributeChildResponse]:
+    def update_nested_attribute_child(db: Session, nested_attribute_child_id: int, data: NestedAttributeChildUpdate, username: str = None) -> Optional[NestedAttributeChild]:
         nested_attribute_child = db.get(NestedAttributeChild, nested_attribute_child_id)
         if not nested_attribute_child:
             raise HTTPException(
@@ -569,7 +564,7 @@ class DoorAttributeCRUD:
     # ============================================================================
 
     @staticmethod
-    def create_unit(db: Session, data: UnitCreate, username: str = None) -> UnitResponse:
+    def create_unit(db: Session, data: UnitCreate, username: str = None) -> Unit:
         unit = Unit(
             **data.dict(),
             created_by=username,
@@ -580,11 +575,11 @@ class DoorAttributeCRUD:
         return unit
 
     @staticmethod
-    def get_unit_by_id(db: Session, unit_id: int) -> Optional[UnitResponse]:
+    def get_unit_by_id(db: Session, unit_id: int) -> Optional[Unit]:
         return db.query(Unit).filter(Unit.id == unit_id).first()
 
     @staticmethod
-    def get_all_units(db: Session, skip: int = 0, limit: int = 100) -> List[UnitResponse]:
+    def get_all_units(db: Session, skip: int = 0, limit: int = 100) -> List[Unit]:
         return db.query(Unit).offset(skip).limit(limit).all()
 
     @staticmethod
@@ -592,7 +587,7 @@ class DoorAttributeCRUD:
         return db.query(Unit).count()
 
     @staticmethod
-    def update_unit(db: Session, unit_id: int, data: UnitUpdate, username: str = None) -> Optional[UnitResponse]:
+    def update_unit(db: Session, unit_id: int, data: UnitUpdate, username: str = None) -> Optional[Unit]:
         unit = db.get(Unit, unit_id)
         if not unit:
             raise HTTPException(
@@ -628,4 +623,3 @@ class DoorAttributeCRUD:
         db.delete(unit)
         db.flush()
         return True
-        
