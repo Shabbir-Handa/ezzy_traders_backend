@@ -16,19 +16,19 @@ class DoorTypeCreate(DoorTypeBase):
     thickness_options: Optional[List["DoorTypeThicknessOptionCreate"]] = None
 
 
-class DoorTypeUpdate(DoorTypeBase):
+class DoorTypeUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
 
 
 class DoorTypeResponse(DoorTypeBase):
     id: int
-    door_type_attributes: Optional[List["DoorTypeAttributeResponse"]] = None
+    door_type_services: Optional[List["DoorTypeServiceResponse"]] = None
     thickness_options: Optional[List["DoorTypeThicknessOptionResponse"]] = None
-    created_by: str
-    updated_by: str
-    created_at: datetime
-    updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -41,7 +41,10 @@ class DoorTypeShortResponse(DoorTypeBase):
         from_attributes = True
 
 
-# Door Type Thickness Option Schemas
+# ============================================================================
+# DOOR TYPE THICKNESS OPTION SCHEMAS
+# ============================================================================
+
 class DoorTypeThicknessOptionBase(BaseModel):
     door_type_id: int
     thickness_value: float
@@ -52,57 +55,58 @@ class DoorTypeThicknessOptionCreate(DoorTypeThicknessOptionBase):
     door_type_id: Optional[int] = None
 
 
-class DoorTypeThicknessOptionUpdate(DoorTypeThicknessOptionBase):
-    door_type_id: Optional[int] = None
+class DoorTypeThicknessOptionUpdate(BaseModel):
     thickness_value: Optional[float] = None
     cost_per_sqft: Optional[float] = None
 
 
 class DoorTypeThicknessOptionResponse(DoorTypeThicknessOptionBase):
     id: int
-    created_by: str
-    updated_by: str
-    created_at: datetime
-    updated_at: datetime
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 
-# Door Type Attribute Schemas
-class DoorTypeAttributeBase(BaseModel):
+# ============================================================================
+# DOOR TYPE SERVICE SCHEMAS
+# ============================================================================
+
+class DoorTypeServiceBase(BaseModel):
     door_type_id: int
-    attribute_id: Optional[int] = None
-    nested_attribute_id: Optional[int] = None
+    service_id: Optional[int] = None
+    grouping_id: Optional[int] = None
     required: bool = False
 
 
-class DoorTypeAttributeCreate(DoorTypeAttributeBase):
+class DoorTypeServiceCreate(DoorTypeServiceBase):
     pass
 
 
-class DoorTypeAttributeUpdate(DoorTypeAttributeBase):
-    door_type_id: Optional[int] = None
-    attribute_id: Optional[int] = None
-    nested_attribute_id: Optional[int] = None
+class DoorTypeServiceUpdate(BaseModel):
+    service_id: Optional[int] = None
+    grouping_id: Optional[int] = None
     required: Optional[bool] = None
 
 
-class DoorTypeAttributeResponse(DoorTypeAttributeBase):
+class DoorTypeServiceResponse(DoorTypeServiceBase):
     id: int
-    attribute: Optional["AttributeResponse"] = None
-    nested_attribute: Optional["NestedAttributeResponse"] = None
-    created_by: str
-    updated_by: str
-    created_at: datetime
-    updated_at: datetime
+    service: Optional["ServiceResponse"] = None
+    grouping: Optional["ServiceGroupingShortResponse"] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 
 class PaginatedDoorTypeResponse(BaseModel):
-    data: List["DoorTypeResponse"]
+    data: List[DoorTypeResponse]
     total: int
     page: int
     size: int
@@ -110,7 +114,7 @@ class PaginatedDoorTypeResponse(BaseModel):
 
 
 # Forward reference imports for type resolution
-from app.schemas.attribute import AttributeResponse, NestedAttributeResponse  # noqa: E402, F811
+from app.schemas.service import ServiceResponse, ServiceGroupingShortResponse  # noqa: E402, F811
 
-DoorTypeAttributeResponse.model_rebuild()
+DoorTypeServiceResponse.model_rebuild()
 DoorTypeResponse.model_rebuild()

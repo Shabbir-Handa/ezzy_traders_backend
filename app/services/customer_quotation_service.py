@@ -6,21 +6,21 @@ Business logic layer for Customer and Quotation operations.
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.models import Customer, Quotation, QuotationItem, QuotationItemAttribute, QuotationItemNestedAttribute
+from app.models import Customer, Quotation, QuotationItem, QuotationItemService
 from app.repositories.customer_quotation_repo import CustomerQuotationRepository
 from app.schemas.customer import CustomerCreate, CustomerUpdate
 from app.schemas.quotation import (
     QuotationCreate, QuotationUpdate,
     QuotationItemCreate, QuotationItemUpdate,
-    QuotationItemAttributeCreate, QuotationItemAttributeUpdate,
-    QuotationItemNestedAttributeCreate
+    QuotationItemServiceCreate, QuotationItemServiceUpdate,
 )
 
 
 class CustomerQuotationService:
-    # ============================================================================
-    # CUSTOMER METHODS
-    # ============================================================================
+
+    # ========================================================================
+    # CUSTOMER
+    # ========================================================================
 
     @staticmethod
     def create_customer(db: Session, data: CustomerCreate, username: str = None) -> Customer:
@@ -46,9 +46,9 @@ class CustomerQuotationService:
     def delete_customer(db: Session, customer_id: int) -> bool:
         return CustomerQuotationRepository.delete_customer(db, customer_id)
 
-    # ============================================================================
-    # QUOTATION METHODS
-    # ============================================================================
+    # ========================================================================
+    # QUOTATION
+    # ========================================================================
 
     @staticmethod
     def create_quotation(db: Session, data: QuotationCreate, username: str = None) -> Quotation:
@@ -86,9 +86,9 @@ class CustomerQuotationService:
     def delete_quotation(db: Session, quotation_id: int) -> bool:
         return CustomerQuotationRepository.delete_quotation(db, quotation_id)
 
-    # ============================================================================
-    # QUOTATION ITEM METHODS
-    # ============================================================================
+    # ========================================================================
+    # QUOTATION ITEM
+    # ========================================================================
 
     @staticmethod
     def create_quotation_item(db: Session, data: QuotationItemCreate, created_by: str = None) -> QuotationItem:
@@ -109,39 +109,3 @@ class CustomerQuotationService:
     @staticmethod
     def delete_quotation_item(db: Session, item_id: int) -> bool:
         return CustomerQuotationRepository.delete_quotation_item(db, item_id)
-
-    # ============================================================================
-    # QUOTATION ITEM ATTRIBUTE METHODS
-    # ============================================================================
-
-    @staticmethod
-    def create_quotation_item_attribute(db: Session, data: QuotationItemAttributeCreate, created_by: str = None) -> QuotationItemAttribute:
-        return CustomerQuotationRepository.create_quotation_item_attribute(db, data, created_by)
-
-    @staticmethod
-    def get_quotation_item_attribute_by_id(db: Session, attribute_id: int) -> Optional[QuotationItemAttribute]:
-        return CustomerQuotationRepository.get_quotation_item_attribute_by_id(db, attribute_id)
-
-    @staticmethod
-    def get_quotation_item_attributes_by_item(db: Session, quotation_item_id: int) -> List[QuotationItemAttribute]:
-        return CustomerQuotationRepository.get_quotation_item_attributes_by_item(db, quotation_item_id)
-
-    @staticmethod
-    def update_quotation_item_attribute(db: Session, attribute_id: int, data: QuotationItemAttributeUpdate, updated_by: str = None) -> Optional[QuotationItemAttribute]:
-        return CustomerQuotationRepository.update_quotation_item_attribute(db, attribute_id, data, updated_by)
-
-    @staticmethod
-    def delete_quotation_item_attribute(db: Session, attribute_id: int) -> bool:
-        return CustomerQuotationRepository.delete_quotation_item_attribute(db, attribute_id)
-
-    # ============================================================================
-    # QUOTATION ITEM NESTED ATTRIBUTE METHODS
-    # ============================================================================
-
-    @staticmethod
-    def create_quotation_item_nested_attribute(db: Session, data: QuotationItemNestedAttributeCreate, created_by: str = None) -> QuotationItemNestedAttribute:
-        return CustomerQuotationRepository.create_quotation_item_nested_attribute(db, data, created_by)
-
-    @staticmethod
-    def get_quotation_item_nested_attribute_by_id(db: Session, nested_attribute_id: int) -> Optional[QuotationItemNestedAttribute]:
-        return CustomerQuotationRepository.get_quotation_item_nested_attribute_by_id(db, nested_attribute_id)

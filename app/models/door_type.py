@@ -1,6 +1,6 @@
 """
 Door Type Models
-DoorType, DoorTypeThicknessOption, DoorTypeAttribute
+DoorType, DoorTypeThicknessOption, DoorTypeService
 """
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float, Boolean, UniqueConstraint
@@ -15,19 +15,18 @@ class DoorType(Base):
     id = Column(Integer, primary_key=True)
 
     name = Column(String, nullable=False)
-    description = Column(String)
+    description = Column(String, nullable=True)
 
+    # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=now_ist)
     updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
-    # Many-to-many with Attribute via DoorTypeAttribute
-    door_type_attributes = relationship('DoorTypeAttribute', back_populates='door_type', cascade="all, delete-orphan")
-    # One-to-many to quotation items
+    # Relationships
+    door_type_services = relationship('DoorTypeService', back_populates='door_type', cascade="all, delete-orphan")
     items = relationship('QuotationItem', back_populates='door_type')
-    # One-to-many to thickness options
-    thickness_options = relationship('DoorTypeThicknessOption', back_populates='door_type')
+    thickness_options = relationship('DoorTypeThicknessOption', back_populates='door_type', cascade="all, delete-orphan")
 
 
 class DoorTypeThicknessOption(Base):
@@ -39,24 +38,26 @@ class DoorTypeThicknessOption(Base):
     thickness_value = Column(Float, nullable=False)
     cost_per_sqft = Column(Float, nullable=False)
 
+    # Audit fields
     created_by = Column(String, nullable=True)
     updated_by = Column(String, nullable=True)
     created_at = Column(DateTime, default=now_ist)
     updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
+    # Relationships
     door_type = relationship('DoorType', back_populates='thickness_options')
     quotation_items = relationship('QuotationItem', back_populates='thickness_option')
 
 
-class DoorTypeAttribute(Base):
-    __tablename__ = 'door_type_attribute'
+class DoorTypeService(Base):
+    __tablename__ = 'door_type_service'
+
     id = Column(Integer, primary_key=True)
 
     door_type_id = Column(Integer, ForeignKey('door_type.id', ondelete='CASCADE'), nullable=False)
-    attribute_id = Column(Integer, ForeignKey('attribute.id'), nullable=True)
-    nested_attribute_id = Column(Integer, ForeignKey('nested_attribute.id'), nullable=True)
+    service_id = Column(Integer, ForeignKey('service.id'), nullable=True)
+    grouping_id = Column(Integer, ForeignKey('service_grouping.id'), nullable=True)
 
-    # Common fields
     required = Column(Boolean, default=False)
 
     # Audit fields
@@ -66,11 +67,11 @@ class DoorTypeAttribute(Base):
     updated_at = Column(DateTime, default=now_ist, onupdate=now_ist)
 
     # Relationships
-    attribute = relationship('Attribute', back_populates='door_type_attribute')
-    door_type = relationship('DoorType', back_populates='door_type_attributes')
-    nested_attribute = relationship('NestedAttribute', back_populates='door_type_attribute')
+    service = relationship('Service', back_populates='door_type_services')
+    door_type = relationship('DoorType', back_populates='door_type_services')
+    grouping = relationship('ServiceGrouping', back_populates='door_type_services')
 
     __table_args__ = (
-        UniqueConstraint('door_type_id', 'attribute_id', name='uq_door_type_attribute'),
-        UniqueConstraint('door_type_id', 'nested_attribute_id', name='uq_door_type_nested_attribute')
+        UniqueConstraint('door_type_id', 'service_id', name='uq_door_type_service'),
+        UniqueConstraint('door_type_id', 'grouping_id', name='uq_door_type_grouping'),
     )

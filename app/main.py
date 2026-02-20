@@ -15,7 +15,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.db.session import engine
 from app.models.base import Base
-from app.api.v1.router import router as v1_router
+# Import all models to register them with Base.metadata
+import app.models  # noqa: F401
+from app.api.v1.router import api_v1_router as v1_router
 
 
 # ============================================================================
