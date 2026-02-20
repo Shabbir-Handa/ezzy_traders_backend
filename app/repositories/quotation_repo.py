@@ -1,18 +1,17 @@
 """
-Customer & Quotation Repository
-Data access layer for Customer, Quotation, QuotationItem, and related entities.
+Quotation Repository
+Data access layer for Quotation, QuotationItem, and related entities.
 """
 
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, selectinload
 from typing import List, Optional
 from datetime import datetime
 
 from app.models import (
-    Customer, Quotation, QuotationItem,
+    Quotation, QuotationItem,
     QuotationItemService, QuotationItemServiceUnitValue,
-    Service, ServiceOption, DoorTypeThicknessOption,
+    Service, ServiceOption, DoorTypeThicknessOption, Unit
 )
-from app.schemas.customer import CustomerCreate, CustomerUpdate
 from app.schemas.quotation import (
     QuotationCreate, QuotationUpdate,
     QuotationItemCreate, QuotationItemUpdate,
@@ -20,58 +19,7 @@ from app.schemas.quotation import (
 )
 
 
-class CustomerQuotationRepository:
-
-    # ========================================================================
-    # CUSTOMER
-    # ========================================================================
-
-    @staticmethod
-    def create_customer(db: Session, data: CustomerCreate, username: str = None) -> Customer:
-        customer = Customer(
-            **data.model_dump(),
-            created_by=username or "system",
-            updated_by=username or "system",
-        )
-        db.add(customer)
-        db.commit()
-        db.refresh(customer)
-        return customer
-
-    @staticmethod
-    def get_customer_by_id(db: Session, customer_id: int) -> Optional[Customer]:
-        return db.query(Customer).filter(Customer.id == customer_id).first()
-
-    @staticmethod
-    def get_all_customers(db: Session, skip: int = 0, limit: int = 100) -> List[Customer]:
-        return db.query(Customer).offset(skip).limit(limit).all()
-
-    @staticmethod
-    def count_customers(db: Session) -> int:
-        return db.query(Customer).count()
-
-    @staticmethod
-    def update_customer(db: Session, customer_id: int, data: CustomerUpdate, username: str = None) -> Optional[Customer]:
-        customer = db.query(Customer).filter(Customer.id == customer_id).first()
-        if not customer:
-            return None
-        update_data = data.model_dump(exclude_unset=True)
-        for key, value in update_data.items():
-            setattr(customer, key, value)
-        if username:
-            customer.updated_by = username
-        db.commit()
-        db.refresh(customer)
-        return customer
-
-    @staticmethod
-    def delete_customer(db: Session, customer_id: int) -> bool:
-        customer = db.query(Customer).filter(Customer.id == customer_id).first()
-        if not customer:
-            return False
-        db.delete(customer)
-        db.commit()
-        return True
+class QuotationRepository:
 
     # ========================================================================
     # QUOTATION
@@ -97,8 +45,17 @@ class CustomerQuotationRepository:
                 option = db.query(ServiceOption).filter(ServiceOption.id == svc_data.option_id).first()
                 if option:
                     rate = option.cost or 0.0
-            quantity = svc_data.quantity or 0.0
-            cost = rate * quantity
+            
+            if svc_data.unit_values and len(svc_data.unit_values) > 0:
+                uv_data = svc_data.unit_values[0]
+                unit = db.query(Unit).filter(Unit.id == uv_data.unit_id).first()
+                if unit and unit.unit_type and unit.unit_type.lower() == 'vector':
+                    cost = rate * (uv_data.value1 or 0.0) * (uv_data.value2 or 0.0)
+                else:
+                    cost = rate * (uv_data.value1 or 0.0)
+            else:
+                quantity = svc_data.quantity or 0.0
+                cost = rate * quantity
 
         elif stype == 'add_on':
             # fixed cost from option or service.cost
@@ -129,9 +86,10 @@ class CustomerQuotationRepository:
         thickness_option: DoorTypeThicknessOption,
     ):
         """Calculate and set cost breakdown fields on a QuotationItem."""
-        # Base cost = area × cost_per_sqft × quantity
-        area = item.length * item.breadth
-        item.base_cost = round(area * thickness_option.cost_per_sqft * item.quantity, 2)
+        # Base cost = area (sq ft) × cost_per_sqft × quantity
+        # Dimensions are stored in inches, so convert sq inches → sq feet (÷ 144)
+        area_sqft = (item.length * item.breadth) / 144
+        item.base_cost = round(area_sqft * thickness_option.cost_per_sqft * item.quantity, 2)
 
         # Services cost = sum of all service costs
         total_services = 0.0
@@ -148,7 +106,7 @@ class CustomerQuotationRepository:
     @staticmethod
     def create_quotation(db: Session, data: QuotationCreate, username: str = None) -> Quotation:
         """Create a quotation with items and services, computing all costs."""
-        quotation_number = CustomerQuotationRepository.generate_quotation_number(db)
+        quotation_number = QuotationRepository.generate_quotation_number(db)
 
         quotation = Quotation(
             customer_id=data.customer_id,
@@ -192,7 +150,7 @@ class CustomerQuotationRepository:
                 # Process services
                 if item_data.services:
                     for svc_data in item_data.services:
-                        cost = CustomerQuotationRepository._calculate_service_cost(db, svc_data)
+                        cost = QuotationRepository._calculate_service_cost(db, svc_data)
 
                         svc = QuotationItemService(
                             quotation_item_id=item.id,
@@ -226,14 +184,14 @@ class CustomerQuotationRepository:
                 db.refresh(item)
 
                 # Calculate item costs
-                CustomerQuotationRepository._calculate_item_costs(db, item, thickness_option)
+                QuotationRepository._calculate_item_costs(db, item, thickness_option)
                 quotation_total += item.total
 
         quotation.total = round(quotation_total, 2)
         db.commit()
 
         # Reload with relationships
-        return CustomerQuotationRepository.get_quotation_by_id(db, quotation.id)
+        return QuotationRepository.get_quotation_by_id(db, quotation.id)
 
     @staticmethod
     def get_quotation_by_id(db: Session, quotation_id: int) -> Optional[Quotation]:
@@ -300,12 +258,12 @@ class CustomerQuotationRepository:
 
         quotation_total = 0.0
         for item in quotation.items:
-            CustomerQuotationRepository._calculate_item_costs(db, item, item.thickness_option)
+            QuotationRepository._calculate_item_costs(db, item, item.thickness_option)
             quotation_total += item.total
 
         quotation.total = round(quotation_total, 2)
         db.commit()
-        return CustomerQuotationRepository.get_quotation_by_id(db, quotation_id)
+        return QuotationRepository.get_quotation_by_id(db, quotation_id)
 
     @staticmethod
     def update_quotation(db: Session, quotation_id: int, data: QuotationUpdate, updated_by: str = None) -> Optional[Quotation]:
@@ -357,7 +315,7 @@ class CustomerQuotationRepository:
 
         if data.services:
             for svc_data in data.services:
-                cost = CustomerQuotationRepository._calculate_service_cost(db, svc_data)
+                cost = QuotationRepository._calculate_service_cost(db, svc_data)
                 svc = QuotationItemService(
                     quotation_item_id=item.id,
                     service_id=svc_data.service_id,
@@ -387,7 +345,7 @@ class CustomerQuotationRepository:
         db.refresh(item)
 
         if thickness_option:
-            CustomerQuotationRepository._calculate_item_costs(db, item, thickness_option)
+            QuotationRepository._calculate_item_costs(db, item, thickness_option)
 
         # Update quotation total
         quotation = db.query(Quotation).filter(Quotation.id == data.quotation_id).first()

@@ -2,7 +2,7 @@
 Quotation Schemas
 """
 
-from datetime import datetime, date
+from datetime import datetime, date as date_type
 from typing import Optional, List
 from pydantic import BaseModel
 
@@ -148,7 +148,7 @@ class QuotationItemResponse(BaseModel):
 
 class QuotationBase(BaseModel):
     customer_id: int
-    date: Optional[date] = None
+    date: Optional[date_type] = None
     status: str = 'draft'
     notes: Optional[str] = None
 
@@ -159,7 +159,7 @@ class QuotationCreate(QuotationBase):
 
 class QuotationUpdate(BaseModel):
     customer_id: Optional[int] = None
-    date: Optional[date] = None
+    date: Optional[date_type] = None
     status: Optional[str] = None
     notes: Optional[str] = None
 
@@ -167,7 +167,7 @@ class QuotationUpdate(BaseModel):
 class QuotationResponse(BaseModel):
     id: int
     customer_id: int
-    date: Optional[date] = None
+    date: Optional[date_type] = None
     status: str
     quotation_number: str
     total: float = 0
@@ -186,7 +186,7 @@ class QuotationResponse(BaseModel):
 class QuotationShortResponse(BaseModel):
     id: int
     customer_id: int
-    date: Optional[date] = None
+    date: Optional[date_type] = None
     status: str
     quotation_number: str
     total: float = 0
