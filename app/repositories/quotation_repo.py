@@ -37,8 +37,9 @@ class QuotationRepository:
 
         cost = 0.0
         stype = service.service_type
+        stype_val = stype.value if hasattr(stype, 'value') else stype
 
-        if stype == 'consumable':
+        if stype_val == 'consumable':
             # rate × quantity; option cost overrides service.cost
             rate = service.cost or 0.0
             if svc_data.option_id:
@@ -57,7 +58,7 @@ class QuotationRepository:
                 quantity = svc_data.quantity or 0.0
                 cost = rate * quantity
 
-        elif stype == 'add_on':
+        elif stype_val == 'add_on':
             # fixed cost from option or service.cost
             if svc_data.option_id:
                 option = db.query(ServiceOption).filter(ServiceOption.id == svc_data.option_id).first()
@@ -66,15 +67,15 @@ class QuotationRepository:
             else:
                 cost = service.cost or 0.0
 
-        elif stype == 'labour':
+        elif stype_val == 'labour':
             cost = svc_data.direct_amount or 0.0
 
-        elif stype == 'grouping':
+        elif stype_val == 'grouping':
             # Grouping cost = sum of children costs (computed by parent)
             cost = 0.0
 
         # Double for both_sides
-        if svc_data.both_sides and stype in ('consumable', 'add_on'):
+        if svc_data.both_sides and stype_val in ('consumable', 'add_on'):
             cost *= 2
 
         return round(cost, 2)
