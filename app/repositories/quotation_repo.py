@@ -35,18 +35,22 @@ class QuotationRepository:
         if not service:
             return 0.0
 
-        cost = 0.0
         stype = service.service_type
         stype_val = stype.value if hasattr(stype, 'value') else stype
 
+        # Determine base rate
+        rate = service.cost or 0.0
+        if svc_data.option_id:
+            option = db.query(ServiceOption).filter(ServiceOption.id == svc_data.option_id).first()
+            if option:
+                rate = option.cost or 0.0
+
+        # Direct amount overrides rate for all types
+        if svc_data.direct_amount is not None:
+            rate = float(svc_data.direct_amount)
+
+        cost = 0.0
         if stype_val == 'consumable':
-            # rate × quantity; option cost overrides service.cost
-            rate = service.cost or 0.0
-            if svc_data.option_id:
-                option = db.query(ServiceOption).filter(ServiceOption.id == svc_data.option_id).first()
-                if option:
-                    rate = option.cost or 0.0
-            
             if svc_data.unit_values and len(svc_data.unit_values) > 0:
                 uv_data = svc_data.unit_values[0]
                 unit = db.query(Unit).filter(Unit.id == uv_data.unit_id).first()
@@ -59,16 +63,10 @@ class QuotationRepository:
                 cost = rate * quantity
 
         elif stype_val == 'add_on':
-            # fixed cost from option or service.cost
-            if svc_data.option_id:
-                option = db.query(ServiceOption).filter(ServiceOption.id == svc_data.option_id).first()
-                if option:
-                    cost = option.cost or 0.0
-            else:
-                cost = service.cost or 0.0
+            cost = rate
 
         elif stype_val == 'labour':
-            cost = svc_data.direct_amount or 0.0
+            cost = rate
 
         elif stype_val == 'grouping':
             # Grouping cost = sum of children costs (computed by parent)
@@ -96,7 +94,7 @@ class QuotationRepository:
         total_services = 0.0
         for svc in item.services:
             total_services += svc.cost or 0
-        item.services_cost = round(total_services, 2)
+        item.services_cost = round(total_services * item.quantity, 2)
 
         # Linear cost flow
         item.subtotal = round(item.base_cost + item.services_cost, 2)
